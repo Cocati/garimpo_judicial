@@ -1,22 +1,15 @@
+# Virtualenv
+venv/
+.venv/
+
 # Python
 __pycache__/
-*.py[cod]
-*$py.class
-.venv/
-.env
+*.pyc
 
-# Testes e Cobertura
+# Testes
 .pytest_cache/
-.coverage
-htmlcov/
 
-# Banco de Dados Local (Se houver)
-*.sqlite
-*.db
-
-# IDEs
+# IDE
 .vscode/
 .idea/
 
-# Bckps
-*.zip
