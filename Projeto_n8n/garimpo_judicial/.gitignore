@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+.env
+
+# Testes e Cobertura
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Banco de Dados Local (Se houver)
+*.sqlite
+*.db
+
+# IDEs
+.vscode/
+.idea/
+
+# Bckps
+*.zip
