@@ -274,3 +274,29 @@ class PostgresAuctionRepository(AuctionRepository):
             "id_leilao": id_leilao
         })
         self.session.commit()
+        
+    def update_auction_core_data(self, site: str, id_leilao: str, data: dict):
+        """
+        Atualiza dados estruturais do leilão (Correção manual de datas/valores).
+        """
+        # Busca o leilão
+        auction = self.session.query(LeilaoAnaliticoModel).filter_by(
+            site=site, 
+            id_leilao=id_leilao
+        ).first()
+        
+        if not auction:
+            raise ValueError("Leilão não encontrado para edição.")
+
+        # Atualiza os campos se eles estiverem no dicionário 'data'
+        if "titulo" in data: auction.titulo = data["titulo"]
+        if "valor_1_praca" in data: auction.valor_1_praca = data["valor_1_praca"]
+        if "valor_2_praca" in data: auction.valor_2_praca = data["valor_2_praca"]
+        if "data_1_praca" in data: auction.data_1_praca = data["data_1_praca"]
+        if "data_2_praca" in data: auction.data_2_praca = data["data_2_praca"]
+        
+        try:
+            self.session.commit()
+        except Exception as e:
+            self.session.rollback()
+            raise e
