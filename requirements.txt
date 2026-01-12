@@ -12,3 +12,7 @@ psycopg2-binary>=2.9.0  # Driver Postgres
 
 # Utilitários
 python-dotenv>=1.0.0
+
+# Testes
+pytest
+pytest-cov
