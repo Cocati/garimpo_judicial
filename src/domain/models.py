@@ -27,11 +27,22 @@ class Auction:
     data_1_praca: Optional[datetime] = None
     data_2_praca: Optional[datetime] = None
     status_carteira: Optional[str] = None
+    data_1_praca: Optional[datetime] = None
+    data_2_praca: Optional[datetime] = None
 
     @property
     def unique_id(self) -> str:
         """Identificador único composto para uso interno."""
         return f"{self.site}_{self.id_leilao}"
+        
+    @property
+    def data_ordenacao(self) -> datetime:
+        """
+        Retorna a maior data disponível entre 1ª e 2ª praça.
+        Se ambas forem None, retorna datetime.max para enviar ao fim da lista.
+        """
+        datas = [d for d in [self.data_1_praca, self.data_2_praca] if d is not None]
+        return max(datas) if datas else datetime.max
 
 @dataclass
 class AuctionFilter:
@@ -92,3 +103,4 @@ class DetailedAnalysis:
     custo_desocupacao: float = 0.0
     
     data_atualizacao: datetime = field(default_factory=datetime.now)
+    

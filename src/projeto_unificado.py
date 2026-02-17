@@ -1,4 +1,69 @@
 
+# ==== Início do arquivo: /home/cocatis/Projeto_n8n/garimpo_judicial/src/consolida.py ====
+#!/usr/bin/env python3
+from pathlib import Path
+import argparse
+import sys
+
+def _coletar_py(raiz: Path, ignorar_dirs: set):
+    for p in raiz.rglob("*.py"):
+        # pula se alguma parte do caminho estiver na lista de ignorados
+        if any(part in ignorar_dirs for part in p.parts):
+            continue
+        yield p
+
+def consolidar(raiz: str, saida: str, ignorar_dirs: set):
+    raiz_path = Path(raiz).resolve()
+    saida_path = Path(saida).resolve()
+
+    arquivos = [p for p in _coletar_py(raiz_path, ignorar_dirs) if p.resolve() != saida_path]
+    print(f"🔎 Encontrados {len(arquivos)} arquivos .py sob '{raiz_path}'")
+
+    if not arquivos:
+        print("⚠️ Nenhum arquivo .py encontrado (ou tudo foi ignorado).")
+        return 1
+
+    with open(saida_path, "w", encoding="utf-8") as w:
+        for i, p in enumerate(arquivos, 1):
+            print(f"[{i}/{len(arquivos)}] Processando: {p}")
+            try:
+                conteudo = p.read_text(encoding="utf-8", errors="replace")
+            except Exception as e:
+                print(f"⚠️ Erro ao ler {p}: {e}", file=sys.stderr)
+                continue
+            w.write(f"\n# ==== Início do arquivo: {p} ====\n")
+            w.write(conteudo)
+            w.write(f"\n# ==== Fim do arquivo: {p} ====\n")
+
+    print(f"✅ Saída escrita em: {saida_path}")
+    return 0
+
+def main():
+    parser = argparse.ArgumentParser(description="Consolida todos os .py em um único arquivo.")
+    parser.add_argument("--root", default=".", help="Pasta raiz do projeto (default: .)")
+    parser.add_argument("--out", default="projeto_unificado.py", help="Arquivo de saída")
+    parser.add_argument(
+        "--ignore", nargs="*", default=[
+            "__pycache__", ".git", ".idea", ".venv", "venv", "env",
+            "build", "dist", "site-packages"  # adicione "Lib" aqui se quiser pular essa pasta
+        ],
+        help="Nomes de pastas a ignorar (separadas por espaço)."
+    )
+    args = parser.parse_args()
+    # transforma em set para busca mais rápida
+    ignorar = set(args.ignore)
+    sys.exit(consolidar(args.root, args.out, ignorar))
+
+if __name__ == "__main__":
+    main()
+
+
+# ==== Fim do arquivo: /home/cocatis/Projeto_n8n/garimpo_judicial/src/consolida.py ====
+
+# ==== Início do arquivo: /home/cocatis/Projeto_n8n/garimpo_judicial/src/__init__.py ====
+
+# ==== Fim do arquivo: /home/cocatis/Projeto_n8n/garimpo_judicial/src/__init__.py ====
+
 # ==== Início do arquivo: /home/cocatis/Projeto_n8n/garimpo_judicial/src/application/use_cases.py ====
 from typing import List, Dict
 from src.domain.models import Auction, AuctionFilter, Evaluation, EvaluationStatus, DetailedAnalysis
@@ -111,6 +176,10 @@ class AuctionRepository(ABC):
 
 # ==== Fim do arquivo: /home/cocatis/Projeto_n8n/garimpo_judicial/src/application/interfaces.py ====
 
+# ==== Início do arquivo: /home/cocatis/Projeto_n8n/garimpo_judicial/src/application/__init__.py ====
+
+# ==== Fim do arquivo: /home/cocatis/Projeto_n8n/garimpo_judicial/src/application/__init__.py ====
+
 # ==== Início do arquivo: /home/cocatis/Projeto_n8n/garimpo_judicial/src/domain/models.py ====
 from enum import Enum
 from dataclasses import dataclass, field
@@ -208,6 +277,103 @@ class DetailedAnalysis:
     data_atualizacao: datetime = field(default_factory=datetime.now)
 
 # ==== Fim do arquivo: /home/cocatis/Projeto_n8n/garimpo_judicial/src/domain/models.py ====
+
+# ==== Início do arquivo: /home/cocatis/Projeto_n8n/garimpo_judicial/src/domain/__init__.py ====
+
+# ==== Fim do arquivo: /home/cocatis/Projeto_n8n/garimpo_judicial/src/domain/__init__.py ====
+
+# ==== Início do arquivo: /home/cocatis/Projeto_n8n/garimpo_judicial/src/tests/__init__.py ====
+
+# ==== Fim do arquivo: /home/cocatis/Projeto_n8n/garimpo_judicial/src/tests/__init__.py ====
+
+# ==== Início do arquivo: /home/cocatis/Projeto_n8n/garimpo_judicial/src/tests/unit/test_use_cases.py ====
+import pytest
+from unittest.mock import Mock
+from datetime import datetime
+
+# IMPORTANTE: Estas são as classes que estavam faltando (causando o NameError)
+from src.domain.models import Auction, Evaluation, EvaluationStatus, AuctionFilter
+# Importação dos Casos de Uso
+from src.application.use_cases import (
+    GetPendingAuctionsUseCase, 
+    SubmitBatchEvaluationUseCase, 
+    GetPortfolioUseCase
+)
+
+class TestAuctionsUseCases:
+    
+    def setup_method(self):
+        # Mock do repositório para isolar a lógica de negócio do Banco de Dados
+        self.mock_repo = Mock()
+        
+    def test_get_pending_auctions_should_call_repository_with_correct_filters(self):
+        """
+        Garante que o Use Case repassa os filtros corretamente para o Repositório.
+        """
+        use_case = GetPendingAuctionsUseCase(self.mock_repo)
+        user_id = "user_123"
+        uf_filter = ["SP"]
+        
+        # Act
+        use_case.execute(user_id=user_id, uf=uf_filter)
+        
+        # Assert
+        args, _ = self.mock_repo.get_pending_auctions.call_args
+        called_user_id, called_filter = args
+        
+        assert called_user_id == user_id
+        assert called_filter.uf == uf_filter
+        # Aqui não dará mais NameError, pois AuctionFilter foi importado no topo
+        assert isinstance(called_filter, AuctionFilter)
+
+    def test_submit_batch_evaluation_should_create_evaluations_correctly(self):
+        """
+        Verifica se o processamento de lote converte dicts em entidades de Evaluation.
+        """
+        use_case = SubmitBatchEvaluationUseCase(self.mock_repo)
+        user_id = "user_test"
+        items = [
+            {'site': 'leiloeiro_a', 'id_leilao': '101'},
+            {'site': 'leiloeiro_b', 'id_leilao': '102'}
+        ]
+        decision = EvaluationStatus.ANALISAR # Agora reconhecido via import
+        
+        # Act
+        use_case.execute(user_id, items, decision)
+        
+        # Assert
+        called_evaluations = self.mock_repo.save_evaluations.call_args[0][0]
+        
+        assert len(called_evaluations) == 2
+        assert isinstance(called_evaluations[0], Evaluation)
+        assert called_evaluations[0].avaliacao == EvaluationStatus.ANALISAR
+
+    def test_get_portfolio_should_isolate_domain_from_infrastructure(self):
+        """
+        Verifica se o Use Case retorna os dados do domínio corretamente.
+        """
+        use_case = GetPortfolioUseCase(self.mock_repo)
+        
+        # Criamos uma instância real da entidade Auction para o mock retornar
+        mock_auction = Auction(
+            site="site1", id_leilao="1", titulo="Casa", uf="RJ", cidade="Rio",
+            tipo_leilao="Judicial", tipo_bem="Imóvel", valor_1_praca=100.0,
+            valor_2_praca=50.0, link_detalhe="...", imagem_capa="..."
+        )
+        self.mock_repo.get_portfolio_auctions.return_value = [mock_auction]
+        
+        # Act
+        result = use_case.execute("user_1")
+        
+        # Assert
+        assert len(result) == 1
+        assert result[0].titulo == "Casa"
+        assert isinstance(result[0], Auction)
+# ==== Fim do arquivo: /home/cocatis/Projeto_n8n/garimpo_judicial/src/tests/unit/test_use_cases.py ====
+
+# ==== Início do arquivo: /home/cocatis/Projeto_n8n/garimpo_judicial/src/tests/unit/__init__.py ====
+
+# ==== Fim do arquivo: /home/cocatis/Projeto_n8n/garimpo_judicial/src/tests/unit/__init__.py ====
 
 # ==== Início do arquivo: /home/cocatis/Projeto_n8n/garimpo_judicial/src/presentation/streamlit_app/dependencies.py ====
 import streamlit as st
@@ -532,15 +698,23 @@ from datetime import datetime
 def render_carteira(services, user_id):
     st.title("📁 Minha Carteira de Oportunidades")
 
-    # 1. Gestão de Estado da Visualização
+    # Inicializa estados se não existirem
     if "editing_auction_id" not in st.session_state:
         st.session_state["editing_auction_id"] = None
+    if "editing_source_data" not in st.session_state: # <--- NOVO ESTADO
+        st.session_state["editing_source_data"] = False
 
-    # Se tiver um ID selecionado, mostra a tela de ANÁLISE PROFUNDA
-    if st.session_state["editing_auction_id"]:
+    # ROTEAMENTO DE TELAS
+    # 1. Tela de Edição de Dados Brutos (Prioridade Alta)
+    if st.session_state["editing_auction_id"] and st.session_state["editing_source_data"]:
+        _render_edit_source_data(services)
+        
+    # 2. Tela de Análise/Imersão (Prioridade Média)
+    elif st.session_state["editing_auction_id"]:
         _render_detailed_analysis(services, user_id)
+        
+    # 3. Listagem (Padrão)
     else:
-        # Senão, mostra a LISTAGEM com ABAS
         _render_portfolio_list(services, user_id)
 
 def _render_portfolio_list(services, user_id):
@@ -577,10 +751,75 @@ def _render_portfolio_list(services, user_id):
         for auction in items_descartados:
             _render_card(auction, is_readonly=True)
 
+def _render_edit_source_data(services):
+    """
+    Formulário para corrigir dados errados do scraping (Datas, Valores, Título).
+    """
+    auction = st.session_state["current_auction_obj"]
+    
+    st.button("⬅️ Voltar", on_click=lambda: st.session_state.update({"editing_source_data": False}))
+    
+    st.subheader(f"✏️ Editando: {auction.titulo}")
+    
+    # Exibe Link do Edital para consulta rápida
+    st.info(f"🔗 **Link Original:** [{auction.link_detalhe}]({auction.link_detalhe}) (Clique para abrir e conferir os dados)")
+
+    with st.form("edit_source_form"):
+        new_title = st.text_input("Título do Imóvel", value=auction.titulo)
+        
+        c1, c2 = st.columns(2)
+        with c1:
+            st.markdown("### 1ª Praça")
+            # Tratamento para datas nulas
+            d1_val = auction.data_1_praca if auction.data_1_praca else datetime.now()
+            new_date_1 = st.date_input("Data 1ª Praça", value=d1_val, format="DD/MM/YYYY")
+            new_val_1 = st.number_input("Valor 1ª Praça (R$)", value=float(auction.valor_1_praca or 0.0), step=1000.0)
+            
+        with c2:
+            st.markdown("### 2ª Praça")
+            d2_val = auction.data_2_praca if auction.data_2_praca else datetime.now()
+            new_date_2 = st.date_input("Data 2ª Praça", value=d2_val, format="DD/MM/YYYY")
+            new_val_2 = st.number_input("Valor 2ª Praça (R$)", value=float(auction.valor_2_praca or 0.0), step=1000.0)
+
+        st.markdown("---")
+        if st.form_submit_button("💾 Salvar Correções", use_container_width=True):
+            # Prepara objeto de atualização
+            updates = {
+                "titulo": new_title,
+                "data_1_praca": new_date_1,
+                "valor_1_praca": new_val_1,
+                "data_2_praca": new_date_2,
+                "valor_2_praca": new_val_2
+            }
+            
+            # Chama o repositório
+            services["repo"].update_auction_core_data(auction.site, auction.id_leilao, updates)
+            
+            # Atualiza o objeto em memória para refletir na hora
+            auction.titulo = new_title
+            auction.data_1_praca = datetime.combine(new_date_1, datetime.min.time())
+            auction.valor_1_praca = new_val_1
+            auction.data_2_praca = datetime.combine(new_date_2, datetime.min.time())
+            auction.valor_2_praca = new_val_2
+            st.session_state["current_auction_obj"] = auction
+            
+            st.success("Dados atualizados com sucesso!")
+            st.session_state["editing_source_data"] = False
+            st.rerun()
+
+
 def _render_card(auction, is_participating=False, is_readonly=False):
     """
-    Função auxiliar que desenha o card do imóvel na lista.
+    Renderiza o card do imóvel com botão de Edição Rápida.
     """
+    # Cria um sufixo único para garantir que o KEY do botão não duplique entre abas
+    if is_participating:
+        suffix = "participar"
+    elif is_readonly:
+        suffix = "readonly"
+    else:
+        suffix = "analisar"
+
     with st.container(border=True):
         c1, c2, c3 = st.columns([1, 3, 1])
         
@@ -591,46 +830,52 @@ def _render_card(auction, is_participating=False, is_readonly=False):
             else:
                 st.markdown("📷 *Sem Foto*")
         
-        # Coluna 2: Dados e Datas
+        # Coluna 2: Dados
         with c2:
-            st.subheader(f"{auction.titulo}")
+            col_t_1, col_t_2 = st.columns([5, 1])
+            with col_t_1:
+                st.subheader(f"{auction.titulo}")
+            with col_t_2:
+                # --- CORREÇÃO DE KEY AQUI ---
+                # Adicionamos o suffix no key para torná-lo único
+                if st.button("✏️", key=f"edit_data_{auction.id_leilao}_{suffix}", help="Corrigir datas/valores"):
+                    st.session_state["editing_auction_id"] = auction.id_leilao
+                    st.session_state["editing_auction_site"] = auction.site
+                    st.session_state["current_auction_obj"] = auction
+                    st.session_state["editing_source_data"] = True
+                    st.rerun()
+
             st.caption(f"📍 {auction.cidade} - {auction.uf} | 🏛️ {auction.site}")
             
-            # Helper para formatar data
             def fmt_date(dt):
                 return dt.strftime("%d/%m/%Y") if dt else "--/--/--"
 
             col_p1, col_p2 = st.columns(2)
-            
             with col_p1:
                 st.markdown(f"**1ª Praça** ({fmt_date(auction.data_1_praca)})")
                 st.markdown(f"💰 R$ {auction.valor_1_praca:,.2f}")
-            
             with col_p2:
                 st.markdown(f"**2ª Praça** ({fmt_date(auction.data_2_praca)})")
                 val_2 = auction.valor_2_praca
                 st.markdown(f":green[**📉 R$ {val_2:,.2f}**]")
         
-        # Coluna 3: Ação
+        # Coluna 3: Botão de Ação Principal
         with c3:
-            st.write("") # Espaçamento
-            
-            # Define o texto do botão baseado no contexto
+            st.write("") 
             btn_label = "Avaliar 📝"
             if is_participating:
                 btn_label = "Ver Detalhes 🔍"
             elif is_readonly:
                 btn_label = "Revisar 📂"
 
-            # Atualizado para evitar warning: use_container_width -> width="stretch" (ainda suportado)
-            # ou width='stretch' se seu streamlit for muito novo.
-            if st.button(btn_label, key=f"btn_{auction.id_leilao}", width="stretch"):
-                # Salva o contexto na sessão
+            # --- CORREÇÃO DE KEY AQUI TAMBÉM ---
+            if st.button(btn_label, key=f"btn_action_{auction.id_leilao}_{suffix}"): 
                 st.session_state["editing_auction_id"] = auction.id_leilao
                 st.session_state["editing_auction_site"] = auction.site
                 st.session_state["current_auction_obj"] = auction
+                st.session_state["editing_source_data"] = False 
                 st.rerun()
-
+                
 def _render_detailed_analysis(services, user_id):
     """
     Tela de Imersão: Análise Jurídica e Financeira.
@@ -790,6 +1035,7 @@ def _save_analysis(services, original_obj, parecer, risco, reu, credores, ocupac
     original_obj.custo_reforma = reforma
     
     services["repo"].save_detailed_analysis(original_obj)
+
 # ==== Fim do arquivo: /home/cocatis/Projeto_n8n/garimpo_judicial/src/presentation/streamlit_app/views/carteira.py ====
 
 # ==== Início do arquivo: /home/cocatis/Projeto_n8n/garimpo_judicial/src/presentation/streamlit_app/views/carteira (Cópia).py ====
@@ -1648,4 +1894,31 @@ class PostgresAuctionRepository(AuctionRepository):
             "id_leilao": id_leilao
         })
         self.session.commit()
+        
+    def update_auction_core_data(self, site: str, id_leilao: str, data: dict):
+        """
+        Atualiza dados estruturais do leilão (Correção manual de datas/valores).
+        """
+        # Busca o leilão
+        auction = self.session.query(LeilaoAnaliticoModel).filter_by(
+            site=site, 
+            id_leilao=id_leilao
+        ).first()
+        
+        if not auction:
+            raise ValueError("Leilão não encontrado para edição.")
+
+        # Atualiza os campos se eles estiverem no dicionário 'data'
+        if "titulo" in data: auction.titulo = data["titulo"]
+        if "valor_1_praca" in data: auction.valor_1_praca = data["valor_1_praca"]
+        if "valor_2_praca" in data: auction.valor_2_praca = data["valor_2_praca"]
+        if "data_1_praca" in data: auction.data_1_praca = data["data_1_praca"]
+        if "data_2_praca" in data: auction.data_2_praca = data["data_2_praca"]
+        
+        try:
+            self.session.commit()
+        except Exception as e:
+            self.session.rollback()
+            raise e
+
 # ==== Fim do arquivo: /home/cocatis/Projeto_n8n/garimpo_judicial/src/infra/repositories/postgres_repo.py ====

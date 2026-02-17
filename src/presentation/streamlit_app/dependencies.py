@@ -40,6 +40,7 @@ def get_services():
         "get_analysis": GetDetailedAnalysisUseCase(repo),
         "save_analysis": SaveDetailedAnalysisUseCase(repo),
         # --- NOVOS REGISTROS ---
-        "get_portfolio_auctions": GetPortfolio(repo), # Resolve o KeyError atual
+        #"get_portfolio_auctions": GetPortfolio(repo), # Resolve o KeyError atual
+        "get_portfolio_auctions": GetPortfolioUseCase(repo), # Use a mesma classe com a lógica
         "repo": repo # Necessário para o acesso direto feito na carteira.py (save_detailed_analysis)
     }

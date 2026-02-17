@@ -18,7 +18,12 @@ class GetPortfolioUseCase:
         self.repository = repository
     
     def execute(self, user_id: str) -> List[Auction]:
-        return self.repository.get_portfolio_auctions(user_id)
+        # Busca os leilões do repositório
+        auctions = self.repository.get_portfolio_auctions(user_id)
+        
+        # Ordena: os que vencem mais cedo (menor data_ordenacao) no topo
+        # Usamos .sort() para performance ou sorted() para imutabilidade
+        return sorted(auctions, key=lambda x: x.data_ordenacao)
 
 class GetDetailedAnalysisUseCase:
     """Caso de uso: Recuperar os dados da análise profunda (Jurídico/Financeiro)."""
