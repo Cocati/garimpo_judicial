@@ -1,0 +1,93 @@
+git remote -v
+Troque para SSH:
+
+bash
+Copiar código
+git remote add origin git@github.com:Cocati/garimpo_judicial.git
+Confirme:
+
+bash
+Copiar código
+git remote -v
+
+git push --set-upstream origin master
+
+🔁 Ciclo básico (90% da sua vida)
+git status        # ver o que você quebrou
+git add .         # escolher o que entra
+git commit -m "msg clara e curta"
+git push          # mandar pro remoto
+
+🔍 Inspeção e sanidade
+git status        # estado atual (use sempre)
+git diff          # ver mudanças não adicionadas
+git diff --staged # ver o que já vai pro commit
+git log --oneline --graph --decorate --all
+
+🧠 Commits conscientes (menos cagada)
+
+Adicionar arquivos específicos:
+
+git add arquivo.py
+git add pasta/
+
+
+Commit interativo (cirúrgico):
+
+git add -p
+
+
+Editar a mensagem do último commit:
+
+git commit --amend
+
+🧹 Correções rápidas
+
+Esqueceu um arquivo?
+
+git add arquivo_esquecido.py
+git commit --amend --no-edit
+
+
+Desfazer mudanças locais (⚠️ perigoso):
+
+git restore arquivo.py
+git restore .
+
+
+Remover do stage:
+
+git restore --staged arquivo.py
+
+🌿 Branches (modo profissional)
+git branch                 # listar
+git branch nome-da-branch  # criar
+git checkout nome          # trocar
+
+
+Forma moderna (use esta):
+
+git switch -c feature/x
+git switch main
+
+🔀 Merge e rebase (use com juízo)
+
+Merge simples:
+
+git merge feature/x
+
+
+Rebase local (limpar histórico):
+
+git rebase main
+
+
+Abortar se der ruim:
+
+git merge --abort
+git rebase --abort
+
+🛰️ Remoto
+git fetch        # atualizar referências
+git pull         # fetch + merge
+git push         # enviar commits
