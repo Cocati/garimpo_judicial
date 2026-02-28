@@ -1,0 +1,127 @@
+from typing import List, Dict
+from src.domain.models import Auction, AuctionFilter, Evaluation, EvaluationStatus, DetailedAnalysis
+from src.application.interfaces import AuctionRepository
+from src.domain.isj_calculator import IsjCalculator
+
+class GetPendingAuctionsUseCase:
+    """Caso de uso: Recuperar fila de triagem para o usuário."""
+    def __init__(self, repository: AuctionRepository):
+        self.repository = repository
+
+    def execute(self, user_id: str, uf: List[str] = None, cidade: List[str] = None, 
+                tipo_bem: List[str] = None, site: List[str] = None) -> List[Auction]:
+        filters = AuctionFilter(uf=uf, cidade=cidade, tipo_bem=tipo_bem, site=site)
+        return self.repository.get_pending_auctions(user_id, filters)
+
+class GetPortfolioAuctionsUseCase:
+    """
+    Caso de uso: Recuperar itens aprovados ('Analisar', 'Participar', 'No Bid') para a Carteira.
+    NOTA: Renomeado de GetPortfolioUseCase para evitar erros de importação.
+    """
+    def __init__(self, repository: AuctionRepository):
+        self.repository = repository
+    
+    def execute(self, user_id: str) -> List[Auction]:
+        # Busca os leilões do repositório
+        auctions = self.repository.get_portfolio_auctions(user_id)
+        
+        # Ordena: os que vencem mais cedo (menor data_ordenacao) no topo
+        return sorted(auctions, key=lambda x: x.data_ordenacao)
+
+class GetDetailedAnalysisUseCase:
+    """Caso de uso: Recuperar os dados da análise profunda (Jurídico/Financeiro)."""
+    def __init__(self, repository: AuctionRepository):
+        self.repository = repository
+        
+    def execute(self, user_id: str, site: str, id_leilao: str) -> DetailedAnalysis:
+        return self.repository.get_detailed_analysis(user_id, site, id_leilao)
+
+class SaveDetailedAnalysisUseCase:
+    """Caso de uso: Salvar os dados do formulário de análise."""
+    def __init__(self, repository: AuctionRepository):
+        self.repository = repository
+        
+    def execute(self, analysis: DetailedAnalysis):
+        return self.repository.save_detailed_analysis(analysis)
+
+class SubmitBatchEvaluationUseCase:
+    """Caso de uso: Processar a decisão do usuário (Descartar/Analisar)."""
+    def __init__(self, repository: AuctionRepository):
+        self.repository = repository
+
+    def execute(self, user_id: str, items: List[dict], decision: EvaluationStatus) -> int:
+        evaluations_to_save = []
+        for item in items:
+            evaluation = Evaluation(
+                usuario_id=user_id,
+                site=item['site'],
+                id_leilao=item['id_leilao'],
+                avaliacao=decision
+            )
+            evaluations_to_save.append(evaluation)
+        return self.repository.save_evaluations(evaluations_to_save)
+    
+class GetFilterOptionsUseCase:
+    def __init__(self, repository: AuctionRepository):
+        self.repository = repository
+
+    def execute(self):
+        return self.repository.get_filter_options()
+
+class GetUserStatsUseCase:
+    def __init__(self, repository: AuctionRepository):
+        self.repository = repository
+
+    def execute(self, user_id: str) -> Dict[str, int]:
+        return self.repository.get_stats(user_id)
+
+class SaveAuditoriaRascunhoUseCase:
+    """
+    Caso de Uso: Salvar Rascunho.
+    Apenas persiste os dados preenchidos pelo analista sem alterar o status do leilão.
+    """
+    def __init__(self, repository: AuctionRepository):
+        self.repository = repository
+
+    def execute(self, analysis: DetailedAnalysis) -> None:
+        # Persiste no banco de dados via Upsert (conforme TASK-006)
+        self.repository.save_auditoria_rascunho(analysis)
+
+
+class FinalizarAuditoriaUseCase:
+    """
+    Caso de Uso: Finalizar Auditoria.
+    Valida nulidades, calcula o ISJ final e move o leilão para a carteira apropriada.
+    Ref: Spec Técnica Seção 4.2 e AC-2, AC-3, AC-4
+    """
+    def __init__(self, repository: AuctionRepository):
+        self.repository = repository
+        self.calculator = IsjCalculator()
+
+    def execute(self, analysis: DetailedAnalysis, user_id: str) -> str:
+        # AC-2 & AC-3: Bloqueio por Nulidade Absoluta
+        if analysis.proc_citacao is False:
+            raise ValueError("Não é possível finalizar: Nulidade de Citação detectada.")
+        
+        if analysis.mat_prop_confere is False:
+            raise ValueError("Não é possível finalizar: Divergência de Proprietário na Matrícula.")
+
+        # Calcula o Score Final
+        isj_score = self.calculator.calculate(analysis)
+        
+        # Determina o novo status baseado no ISJ (AC-4)
+        # ISJ > 60% -> PARTICIPAR | ISJ <= 60% -> NO_BID (Descartado)
+        novo_status = EvaluationStatus.PARTICIPAR if isj_score > 60.0 else EvaluationStatus.NO_BID
+        
+        # 1. Salva os dados finais da análise
+        self.repository.save_auditoria_rascunho(analysis)
+        
+        # 2. Atualiza o status do leilão na tabela de avaliações (tabela core)
+        self.repository.update_evaluation_status(
+            user_id=user_id,
+            site=analysis.site,
+            id_leilao=analysis.id_leilao,
+            new_status=novo_status
+        )
+        
+        return novo_status.value

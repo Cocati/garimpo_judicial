@@ -1,0 +1,16 @@
+# Virtualenv
+venv/
+.venv/
+
+# Python
+__pycache__/
+*.pyc
+
+# Testes
+.pytest_cache/
+
+# IDE
+.vscode/
+.idea/
+
+garimpo_judicial_baseline/
