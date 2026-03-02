@@ -8,7 +8,7 @@ from src.domain.models import Auction, Evaluation, EvaluationStatus, AuctionFilt
 from src.application.use_cases import (
     GetPendingAuctionsUseCase, 
     SubmitBatchEvaluationUseCase, 
-    GetPortfolioUseCase
+    GetPortfolioAuctionsUseCase
 )
 
 class TestAuctionsUseCases:
@@ -63,7 +63,7 @@ class TestAuctionsUseCases:
         """
         Verifica se o Use Case retorna os dados do domínio corretamente.
         """
-        use_case = GetPortfolioUseCase(self.mock_repo)
+        use_case = GetPortfolioAuctionsUseCase(self.mock_repo)
         
         # Criamos uma instância real da entidade Auction para o mock retornar
         mock_auction = Auction(
