@@ -4,8 +4,13 @@ from sqlalchemy import text, and_, func, distinct
 from datetime import datetime
 from sqlalchemy.dialects.postgresql import insert
 from src.application.interfaces import AuctionRepository
-from src.domain.models import Auction, AuctionFilter, Evaluation, DetailedAnalysis, RiskLevel, OccupationStatus, ConjugeStatus, NaturezaExecucao, EspecieCredito
-from src.infra.database.models_sql import LeilaoAnaliticoModel, LeilaoAvaliacaoModel, LeilaoAnaliseDetalhadaModel
+from src.domain.models import (
+    Auction, AuctionFilter, Evaluation, DetailedAnalysis, 
+    RiskLevel, OccupationStatus, ConjugeStatus, NaturezaExecucao, EspecieCredito
+)
+from src.infra.database.models_sql import (
+    LeilaoAnaliticoModel, LeilaoAvaliacaoModel, LeilaoAnaliseDetalhadaModel
+)
 
 class PostgresAuctionRepository(AuctionRepository):
     def __init__(self, session: Session):
@@ -129,8 +134,7 @@ class PostgresAuctionRepository(AuctionRepository):
 
     def save_detailed_analysis(self, analysis):
         """
-        Salva ou atualiza a análise detalhada (Versão Legada/Simplificada).
-        AGORA ATUALIZADO PARA USAR PK COMPOSTA (site, id_leilao, usuario_id)
+        Salva ou atualiza a análise detalhada (Método Legado - mantido para compatibilidade).
         """
         def get_val(field, default):
             if not field: return default
@@ -154,7 +158,6 @@ class PostgresAuctionRepository(AuctionRepository):
             data_atualizacao=datetime.now()
         )
         
-        # CORREÇÃO: Index elements agora inclui usuario_id
         stmt = stmt.on_conflict_do_update(
             index_elements=['site', 'id_leilao', 'usuario_id'],
             set_={
@@ -239,6 +242,7 @@ class PostgresAuctionRepository(AuctionRepository):
     def save_auditoria_rascunho(self, a: DetailedAnalysis) -> None:
         """
         Implementa Upsert (ON CONFLICT DO UPDATE) para todos os novos campos (V2).
+        ATENÇÃO: Inclui vlr_avaliacao, proc_executados e conversão de Enums.
         """
         try:
             # Mapeamento do Domínio para o Modelo ORM
@@ -246,8 +250,10 @@ class PostgresAuctionRepository(AuctionRepository):
                 site=a.site,
                 id_leilao=a.id_leilao,
                 usuario_id=a.usuario_id,
+                
+                # --- Seção 1 ---
                 proc_num=a.proc_num,
-                proc_executados=a.proc_executados,
+                proc_executados=a.proc_executados, # SQLAlchemy mapeia list -> JSONB
                 proc_adv_exec=a.proc_adv_exec,
                 proc_citacao=a.proc_citacao,
                 proc_conjuge=a.proc_conjuge.value if a.proc_conjuge else None,
@@ -260,6 +266,9 @@ class PostgresAuctionRepository(AuctionRepository):
                 proc_especie_credito=a.proc_especie_credito.value if a.proc_especie_credito else None,
                 proc_debito_atualizado=a.proc_debito_atualizado,
                 proc_avaliacao_imovel=a.proc_avaliacao_imovel,
+                vlr_avaliacao=a.vlr_avaliacao, # NOVO: Resolve erro UndefinedColumn
+
+                # --- Seção 2 ---
                 mat_num=a.mat_num,
                 mat_proprietario=a.mat_proprietario,
                 mat_penhoras=a.mat_penhoras,
@@ -270,6 +279,8 @@ class PostgresAuctionRepository(AuctionRepository):
                 mat_usufruto=a.mat_usufruto,
                 mat_indisp=a.mat_indisp,
                 mat_vagas_mat=a.mat_vagas_mat,
+                
+                # --- Seção 3 ---
                 edt_objeto=a.edt_objeto,
                 edt_vlr_avaliacao=a.edt_vlr_avaliacao,
                 edt_percentual_minimo=a.edt_percentual_minimo,
@@ -277,24 +288,28 @@ class PostgresAuctionRepository(AuctionRepository):
                 edt_parcelamento=a.edt_parcelamento,
                 edt_iptu_subroga=a.edt_iptu_subroga,
                 edt_condo_claro=a.edt_condo_claro,
+                
+                # --- Seção 4 & 5 ---
                 edt_posse_status=a.edt_posse_status,
                 edt_posse_estrategia=a.edt_posse_estrategia,
                 fin_lance=a.fin_lance,
                 fin_itbi=a.fin_itbi,
                 fin_dividas=a.fin_dividas,
-                parecer_juridico=a.analise_ia,
+                recomendacao_ia=a.parecer_juridico, # Alias
+                
+                # --- Campos Legado / Financeiros ---
+                parecer_juridico=a.analise_ia, # Nota: analise_ia no domain -> parecer_juridico no DB
                 valor_venda_estimado=a.valor_venda_estimado,
                 custo_reforma=a.custo_reforma,
                 custo_desocupacao=a.custo_desocupacao,
                 divida_condominio=a.divida_condominio,
                 divida_iptu=a.divida_iptu,
                 divida_subroga=a.divida_subroga,
-                # Campos legado que precisam ser mantidos
                 risco_judicial=a.risco_judicial.value if a.risco_judicial else None,
                 data_atualizacao=datetime.now()
             )
 
-            # Upsert precisa bater com a constraint do banco (que alteramos no Passo 1)
+            # Upsert dinâmico (atualiza tudo que não é chave primária)
             update_cols = {c.name: c for c in stmt.excluded if not c.primary_key}
             
             upsert_stmt = stmt.on_conflict_do_update(
@@ -311,24 +326,28 @@ class PostgresAuctionRepository(AuctionRepository):
     def get_detailed_analysis(self, site: str, id_leilao: str, user_id: str) -> Optional[DetailedAnalysis]:
         """
         Recupera e converte o model ORM para a entidade DetailedAnalysis.
-        CORRIGIDO: Indentação e lógica de mapeamento.
+        Garante conversão de tipos (Float) e Enums.
         """
         row = self.session.query(LeilaoAnaliseDetalhadaModel).filter_by(
             site=site, id_leilao=id_leilao, usuario_id=user_id
         ).first()
 
         if not row:
-            # Retorna objeto vazio se não existir
             return DetailedAnalysis(site=site, id_leilao=id_leilao, usuario_id=user_id)
 
-        # Helper interno
+        # Helper interno para Enums
         def safe_enum(enum_class, value):
             try:
                 return enum_class(value) if value else None
             except ValueError:
                 return None
 
-        # Mapeamento Seguro
+        # Helper para Listas JSON
+        def safe_list(val):
+            if val is None: return []
+            if isinstance(val, list): return val
+            return []
+
         return DetailedAnalysis(
             site=row.site,
             id_leilao=row.id_leilao,
@@ -336,7 +355,7 @@ class PostgresAuctionRepository(AuctionRepository):
             
             # --- Seção 1: Processo Judicial ---
             proc_num=row.proc_num,
-            proc_executados=row.proc_executados if isinstance(row.proc_executados, list) else [],
+            proc_executados=safe_list(row.proc_executados), # Lista segura
             proc_adv_exec=row.proc_adv_exec,
             proc_citacao=row.proc_citacao,
             proc_conjuge=safe_enum(ConjugeStatus, row.proc_conjuge),
@@ -349,11 +368,12 @@ class PostgresAuctionRepository(AuctionRepository):
             proc_especie_credito=safe_enum(EspecieCredito, row.proc_especie_credito),
             proc_debito_atualizado=float(row.proc_debito_atualizado or 0.0),
             proc_avaliacao_imovel=row.proc_avaliacao_imovel,
-
+            vlr_avaliacao=float(row.vlr_avaliacao or 0.0), # NOVO: Campo recuperado do banco
+            
             # --- Seção 2: Matrícula e Gravames ---
             mat_num=row.mat_num,
-            mat_proprietario=row.mat_proprietario if isinstance(row.mat_proprietario, list) else [],
-            mat_penhoras=row.mat_penhoras if isinstance(row.mat_penhoras, list) else [],
+            mat_proprietario=safe_list(row.mat_proprietario),
+            mat_penhoras=safe_list(row.mat_penhoras),
             mat_conjugue=row.mat_conjugue,
             mat_prop_confere=row.mat_prop_confere,
             mat_proprietario_pj=row.mat_proprietario_pj,
@@ -391,4 +411,29 @@ class PostgresAuctionRepository(AuctionRepository):
             divida_iptu=float(row.divida_iptu or 0.0),
             divida_subroga=row.divida_subroga or False,
             data_atualizacao=row.data_atualizacao
+        )
+
+    def get_auction(self, site: str, id_leilao: str) -> Optional[Auction]:
+        """Busca dados básicos do leilão para o cabeçalho."""
+        result = self.session.query(LeilaoAnaliticoModel).filter_by(
+            site=site, id_leilao=id_leilao
+        ).first()
+        
+        if not result:
+            return None
+            
+        return Auction(
+            site=result.site,
+            id_leilao=result.id_leilao,
+            titulo=result.titulo,
+            uf=result.uf,
+            cidade=result.cidade,
+            tipo_bem=result.tipo_bem,
+            tipo_leilao=result.tipo_leilao,
+            valor_1_praca=float(result.valor_1_praca or 0.0),
+            valor_2_praca=float(result.valor_2_praca or 0.0),
+            link_detalhe=result.link_detalhe,
+            imagem_capa=result.imagem_capa,
+            data_1_praca=result.data_1_praca,
+            data_2_praca=result.data_2_praca
         )

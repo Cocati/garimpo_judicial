@@ -74,6 +74,12 @@ class LeilaoAnaliseDetalhadaModel(Base):
     proc_debito_atualizado = Column(Numeric(15, 2), default=0.00)
     proc_avaliacao_imovel = Column(Boolean, nullable=True)
 
+    # --- OUTROS CAMPOS E METADADOS ---
+    parecer_juridico = Column(String, nullable=True)
+    risco_judicial = Column(String, default='Baixo')
+    vlr_avaliacao = Column(Float, default=0.0)
+    data_atualizacao = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
     # --- Seção 2: Matrícula e Gravames ---
     mat_num = Column(String, nullable=True)
     mat_proprietario = Column(JSONB, nullable=True, default=list)

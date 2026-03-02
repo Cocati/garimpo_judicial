@@ -1,16 +1,23 @@
 # Virtualenv
 venv/
 .venv/
-
 # Python
 __pycache__/
 *.pyc
-
 # Testes
 .pytest_cache/
-
 # IDE
 .vscode/
 .idea/
-
+project_context/
+sdd/
+src/project_context/
 garimpo_judicial_baseline/
+
+#Outros arquivos
+consolida.py
+projeto_unificado.py
+
+generate_modules_context_garimpo_judicial.py
+.claudeignore
+
