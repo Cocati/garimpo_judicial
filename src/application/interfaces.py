@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
-from typing import List, Dict
-from src.domain.models import Auction, AuctionFilter, Evaluation
+from typing import List, Dict, Optional
+from src.domain.models import Auction, AuctionFilter, Evaluation, DetailedAnalysis,EvaluationStatus
+
 
 class AuctionRepository(ABC):
     """
@@ -27,4 +28,26 @@ class AuctionRepository(ABC):
     @abstractmethod
     def get_stats(self) -> Dict[str, int]:
         """Retorna dados agregados para o dashboard."""
+        pass
+    
+    @abstractmethod
+    def get_stats(self, user_id: str) -> dict:
+        """Corrigido: agora aceita user_id para estatísticas segmentadas."""
+        pass
+
+    @abstractmethod
+    def save_auditoria_rascunho(self, analysis: DetailedAnalysis) -> None:
+        """Persiste os dados da análise sem alterar o status do leilão."""
+        pass
+
+    @abstractmethod
+    def get_detailed_analysis(self, site: str, id_leilao: str, user_id: str) -> Optional[DetailedAnalysis]:
+        """Recupera a análise completa mapeada para o domínio."""
+        pass
+
+    @abstractmethod
+    def update_status(self, user_id: str, site: str, id_leilao: str, new_status: EvaluationStatus) -> None:
+        """
+        Atualiza o status de avaliação de um leilão (ex: de ANALISAR para PARTICIPAR).
+        """
         pass

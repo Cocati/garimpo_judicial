@@ -1,0 +1,11 @@
+# Vá para a pasta do projeto
+cd ~/Projeto_n8n/garimpo_judicial
+
+source venv/bin/activate
+
+cd src
+
+streamlit run src/presentation/streamlit_app/main.py
+
+source venv/bin/deactivate
+

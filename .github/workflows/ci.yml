@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - master   # <--- Adicione esta linha
       - develop
   pull_request:
     branches:

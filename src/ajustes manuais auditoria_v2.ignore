@@ -1,0 +1,39 @@
+Para incluir novas informações (campos ou dados) nas abas do módulo de Auditoria, você precisará atualizar a cadeia de dados desde o modelo até a interface. Os arquivos principais são:
+
+1. Modelo de Dados (src/domain/models.py)
+Você deve adicionar o novo campo na dataclass DetailedAnalysis.
+
+O que fazer: Localize a seção correta (Processo, Matrícula, Edital, etc.) e defina o nome do campo, o tipo (ex: Optional[str] = None) e, se necessário, adicione um novo Enum de apoio no topo do arquivo.
+
+2. Interface do Usuário (src/presentation/streamlit_app/views/auditoria_v2.py)
+Este arquivo é responsável por renderizar os campos que o usuário vê.
+
+O que fazer: Dentro da função render_auditoria_v2, localize a aba (tab) onde a informação deve aparecer e adicione o componente Streamlit correspondente (ex: st.text_input, st.checkbox ou st.selectbox). Certifique-se de que o valor capturado seja atribuído ao objeto analysis.
+
+3. Repositório de Dados (src/infra/repositories/postgres_repo.py)
+Este arquivo gerencia a leitura e escrita no banco de dados.
+
+O que fazer: * Persistência: Atualize o método save_auditoria_rascunho para incluir a nova coluna no comando SQL INSERT ... ON CONFLICT DO UPDATE.
+
+Leitura: Atualize o método get_detailed_analysis para mapear a coluna do banco de volta para o objeto Python.
+
+Nota: Lembre-se de rodar uma migração no banco de dados (SQL) para adicionar a nova coluna fisicamente na tabela.
+
+4. Lógica de Cálculo e Alertas (Opcional)
+Se a nova informação afetar o score ou gerar avisos visuais, você também precisará mexer em:
+
+src/domain/isj_calculator.py: Para incluir o novo campo na lógica de dedução de pontos do ISJ ou nos KPIs financeiros.
+
+src/presentation/streamlit_app/components/alertas_engine.py: Para criar um novo banner de alerta visual baseado no valor desse campo.
+
+Resumo da Sequência Recomendada:
+
+Altere o banco de dados (SQL).
+
+Atualize o models.py.
+
+Atualize o postgres_repo.py para salvar/ler o campo.
+
+Adicione o campo na View (auditoria_v2.py).
+
+(Se necessário) Atualize o isj_calculator.py.

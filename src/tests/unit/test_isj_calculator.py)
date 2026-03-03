@@ -1,0 +1,35 @@
+import pytest
+from src.domain.isj_calculator import IsjCalculator
+from src.domain.models import DetailedAnalysis, NaturezaExecucao, ConjugeStatus
+
+def test_isj_score_zero_se_nao_houver_citacao():
+    analysis = DetailedAnalysis(site="x", id_leilao="1", usuario_id="u", proc_citacao=False)
+    score = IsjCalculator.calculate(analysis)
+    assert score == 0.0
+
+def test_isj_score_zero_se_proprietario_nao_confere():
+    analysis = DetailedAnalysis(site="x", id_leilao="1", usuario_id="u", mat_prop_confere=False)
+    score = IsjCalculator.calculate(analysis)
+    assert score == 0.0
+
+def test_isj_deducoes_acumuladas():
+    # Base 100 - Provisória (20) - Recursos (20) = 60
+    analysis = DetailedAnalysis(
+        site="x", id_leilao="1", usuario_id="u",
+        proc_citacao=True,
+        mat_prop_confere=True,
+        proc_natureza_execucao=NaturezaExecucao.PROVISORIA,
+        proc_recursos=True
+    )
+    score = IsjCalculator.calculate(analysis)
+    assert score == 60.0
+
+def test_isj_nao_fica_negativo():
+    analysis = DetailedAnalysis(
+        site="x", id_leilao="1", usuario_id="u",
+        proc_citacao=True, mat_prop_confere=True,
+        mat_usufruto=True, proc_conjuge=ConjugeStatus.NAO, proc_coproprietario_intimado=False
+    )
+    # Deduções: 60 + 50 + 40 = 150 -> Score deve ser 0
+    score = IsjCalculator.calculate(analysis)
+    assert score == 0.0

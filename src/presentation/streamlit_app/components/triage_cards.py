@@ -11,7 +11,13 @@ def render_triage_cards(df: pd.DataFrame):
         return {}
 
     # Sanitização básica: Garante que tem ID, pega os primeiros 15 e reseta o índice
-    df_clean = df.dropna(subset=['id_leilao']).head(15).reset_index(drop=True)
+    df_clean = (
+    df
+    .dropna(subset=['id_leilao'])
+    .drop_duplicates(subset=['id_leilao'])  # <- adiciona isso
+    .head(15)
+    .reset_index(drop=True)
+)
     
     if df_clean.empty:
          return {}
