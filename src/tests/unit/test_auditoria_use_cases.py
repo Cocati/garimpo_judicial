@@ -20,4 +20,4 @@ def test_finalizar_auditoria_status_participar_isj_alto():
     status = use_case.execute(analysis, "user123")
     
     assert status == EvaluationStatus.PARTICIPAR.value
-    repo.update_evaluation_status.assert_called_once()
+    repo.update_status.assert_called_once()
