@@ -294,7 +294,7 @@ def render_auditoria_v2(services, user_id: str, site: str, id_leilao: str):
 
         with col_btn2:
             if st.button("🚀 Finalizar", type="primary", disabled=bloqueado, use_container_width=True, key="k_btn_fin"):
-                services['finalizar_auditoria'].execute(analysis)
+                services['finalizar_auditoria'].execute(analysis,user_id)
                 st.balloons()
                 st.success("Auditoria finalizada!")
                 # Idealmente redirecionar ou limpar estado aqui

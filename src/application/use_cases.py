@@ -117,7 +117,7 @@ class FinalizarAuditoriaUseCase:
         self.repository.save_auditoria_rascunho(analysis)
         
         # 2. Atualiza o status do leilão na tabela de avaliações (tabela core)
-        self.repository.update_evaluation_status(
+        self.repository.update_status(
             user_id=user_id,
             site=analysis.site,
             id_leilao=analysis.id_leilao,
@@ -125,3 +125,4 @@ class FinalizarAuditoriaUseCase:
         )
         
         return novo_status.value
+    

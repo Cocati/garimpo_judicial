@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import List, Dict, Optional
-from src.domain.models import Auction, AuctionFilter, Evaluation, DetailedAnalysis
+from src.domain.models import Auction, AuctionFilter, Evaluation, DetailedAnalysis,EvaluationStatus
 
 
 class AuctionRepository(ABC):
@@ -43,4 +43,11 @@ class AuctionRepository(ABC):
     @abstractmethod
     def get_detailed_analysis(self, site: str, id_leilao: str, user_id: str) -> Optional[DetailedAnalysis]:
         """Recupera a análise completa mapeada para o domínio."""
+        pass
+
+    @abstractmethod
+    def update_status(self, user_id: str, site: str, id_leilao: str, new_status: EvaluationStatus) -> None:
+        """
+        Atualiza o status de avaliação de um leilão (ex: de ANALISAR para PARTICIPAR).
+        """
         pass
