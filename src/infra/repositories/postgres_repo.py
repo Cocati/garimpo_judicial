@@ -132,48 +132,87 @@ class PostgresAuctionRepository(AuctionRepository):
             
         return portfolio_items
 
-    def save_detailed_analysis(self, analysis):
+    def save_detailed_analysis(self, analysis: DetailedAnalysis):
         """
-        Salva ou atualiza a análise detalhada (Método Legado - mantido para compatibilidade).
+        Executa o UPSERT (Inserir ou Atualizar) dos dados da auditoria detalhada.
+        Mapeia todos os campos do objeto de domínio para as colunas do banco.
         """
-        def get_val(field, default):
-            if not field: return default
-            return field.value if hasattr(field, "value") else field
+        # 1. Construção do dicionário de dados (Mapeamento Domain -> DB)
+        data = {
+            # --- Chaves Primárias ---
+            "site": analysis.site,
+            "id_leilao": analysis.id_leilao,
+            "usuario_id": analysis.usuario_id,
 
-        stmt = insert(LeilaoAnaliseDetalhadaModel).values(
-            site=analysis.site,
-            id_leilao=analysis.id_leilao,
-            usuario_id=analysis.usuario_id,
-            parecer_juridico=analysis.parecer_juridico,
-            risco_judicial=get_val(analysis.risco_judicial, "Baixo"),
-            ocupacao_status=get_val(analysis.ocupacao_status, "Vago"),
-            reu_citado=analysis.reu_citado,
-            intimacao_credores=analysis.intimacao_credores,
-            divida_condominio=analysis.divida_condominio,
-            divida_iptu=analysis.divida_iptu,
-            divida_subroga=getattr(analysis, 'divida_subroga', True),
-            valor_venda_estimado=analysis.valor_venda_estimado,
-            custo_reforma=analysis.custo_reforma,
-            custo_desocupacao=getattr(analysis, 'custo_desocupacao', 0.0),
-            data_atualizacao=datetime.now()
-        )
+            # --- Seção 1: Processo Judicial ---
+            "proc_num": analysis.proc_num,
+            "proc_executados": analysis.proc_executados,  # Lista -> JSONB
+            "proc_adv_exec": analysis.proc_adv_exec,
+            "proc_citacao": analysis.proc_citacao,
+            "proc_conjuge": analysis.proc_conjuge.value if analysis.proc_conjuge else None,
+            "proc_credores": analysis.proc_credores,
+            "proc_recursos": analysis.proc_recursos,
+            "proc_recursos_obs": analysis.proc_recursos_obs,
+            "proc_coproprietario_intimado": analysis.proc_coproprietario_intimado,
+            "proc_natureza_execucao": analysis.proc_natureza_execucao.value if analysis.proc_natureza_execucao else None,
+            "proc_justica_gratuita": analysis.proc_justica_gratuita,
+            "proc_especie_credito": analysis.proc_especie_credito.value if analysis.proc_especie_credito else None,
+            "proc_debito_atualizado": analysis.proc_debito_atualizado,
+            "proc_avaliacao_imovel": analysis.proc_avaliacao_imovel,
+            "vlr_avaliacao": analysis.vlr_avaliacao,
+
+            # --- Seção 2: Matrícula e Gravames ---
+            "mat_num": analysis.mat_num,
+            "mat_proprietario": analysis.mat_proprietario,  # Lista -> JSONB
+            "mat_documentos_proprietarios": analysis.mat_documentos_proprietarios, # Lista -> JSONB
+            "mat_penhoras": analysis.mat_penhoras,  # Lista -> JSONB
+            "mat_conjugue": analysis.mat_conjugue,
+            "mat_prop_confere": analysis.mat_prop_confere,
+            "mat_proprietario_pj": analysis.mat_proprietario_pj,
+            "mat_penhora_averbada": analysis.mat_penhora_averbada,
+            "mat_usufruto": analysis.mat_usufruto,
+            "mat_indisp": analysis.mat_indisp,
+            "mat_vagas_mat": analysis.mat_vagas_mat if "" else None,
+
+            # --- Seção 3: Edital e Dívidas ---
+            "edt_objeto": analysis.edt_objeto,
+            "edt_vlr_avaliacao": analysis.edt_vlr_avaliacao,
+            "edt_percentual_minimo": analysis.edt_percentual_minimo,
+            "edt_data_avaliacao": analysis.edt_data_avaliacao,
+            "edt_parcelamento": analysis.edt_parcelamento,
+            "edt_iptu_subroga": analysis.edt_iptu_subroga,
+            "edt_condo_claro": analysis.edt_condo_claro,
+
+            # --- Seção 4: Posse e Situação Física ---
+            "edt_posse_status": analysis.edt_posse_status if analysis.edt_posse_status else None,
+            #"edt_posse_estrategia": analysis.edt_posse_estrategia,
+
+            # --- Seção 5: Financeiro ---
+            "fin_lance": analysis.fin_lance,
+            "fin_itbi": analysis.fin_itbi,
+            "fin_dividas": analysis.fin_dividas,
+            "recomendacao_ia": analysis.recomendacao_ia,
+
+            # --- Legado e Compatibilidade ---
+            "parecer_juridico": analysis.analise_ia,  # Mapeado no modelo DDL como parecer_juridico
+            "risco_judicial": analysis.risco_judicial.value if analysis.risco_judicial else "Baixo",
+            "valor_venda_estimado": analysis.valor_venda_estimado,
+            "custo_reforma": analysis.custo_reforma,
+            "custo_desocupacao": analysis.custo_desocupacao,
+            "divida_condominio": analysis.divida_condominio,
+            "divida_iptu": analysis.divida_iptu,
+            "divida_subroga": analysis.divida_subroga,
+            "data_atualizacao": datetime.now()
+        }
+
+        stmt = insert(LeilaoAnaliseDetalhadaModel).values(**data)
         
+        # Faz o update automático em caso de colisão de chaves
         stmt = stmt.on_conflict_do_update(
-            index_elements=['site', 'id_leilao', 'usuario_id'],
-            set_={
-                "parecer_juridico": stmt.excluded.parecer_juridico,
-                "risco_judicial": stmt.excluded.risco_judicial,
-                "reu_citado": stmt.excluded.reu_citado,
-                "intimacao_credores": stmt.excluded.intimacao_credores,
-                "divida_condominio": stmt.excluded.divida_condominio,
-                "divida_iptu": stmt.excluded.divida_iptu,
-                "ocupacao_status": stmt.excluded.ocupacao_status,
-                "valor_venda_estimado": stmt.excluded.valor_venda_estimado,
-                "custo_reforma": stmt.excluded.custo_reforma,
-                "data_atualizacao": datetime.now()
-            }
+            index_elements=["site", "id_leilao", "usuario_id"],
+            set_={k: v for k, v in data.items() if k not in ["site", "id_leilao", "usuario_id"]}
         )
-        
+
         try:
             self.session.execute(stmt)
             self.session.commit()
@@ -241,177 +280,117 @@ class PostgresAuctionRepository(AuctionRepository):
 
     def save_auditoria_rascunho(self, a: DetailedAnalysis) -> None:
         """
-        Implementa Upsert (ON CONFLICT DO UPDATE) para todos os novos campos (V2).
-        ATENÇÃO: Inclui vlr_avaliacao, proc_executados e conversão de Enums.
+        Salva o rascunho da auditoria.
+        Como a estrutura de dados é idêntica à análise final, 
+        reutilizamos a lógica centralizada para garantir consistência.
         """
-        try:
-            # Mapeamento do Domínio para o Modelo ORM
-            stmt = insert(LeilaoAnaliseDetalhadaModel).values(
-                site=a.site,
-                id_leilao=a.id_leilao,
-                usuario_id=a.usuario_id,
-                
-                # --- Seção 1 ---
-                proc_num=a.proc_num,
-                proc_executados=a.proc_executados, # SQLAlchemy mapeia list -> JSONB
-                proc_adv_exec=a.proc_adv_exec,
-                proc_citacao=a.proc_citacao,
-                proc_conjuge=a.proc_conjuge.value if a.proc_conjuge else None,
-                proc_credores=a.proc_credores,
-                proc_recursos=a.proc_recursos,
-                proc_recursos_obs=a.proc_recursos_obs,
-                proc_coproprietario_intimado=a.proc_coproprietario_intimado,
-                proc_natureza_execucao=a.proc_natureza_execucao.value if a.proc_natureza_execucao else None,
-                proc_justica_gratuita=a.proc_justica_gratuita,
-                proc_especie_credito=a.proc_especie_credito.value if a.proc_especie_credito else None,
-                proc_debito_atualizado=a.proc_debito_atualizado,
-                proc_avaliacao_imovel=a.proc_avaliacao_imovel,
-                vlr_avaliacao=a.vlr_avaliacao, # NOVO: Resolve erro UndefinedColumn
+        # Reutiliza o método save_detailed_analysis que já atualizamos e validamos
+        self.save_detailed_analysis(a)
 
-                # --- Seção 2 ---
-                mat_num=a.mat_num,
-                mat_proprietario=a.mat_proprietario,
-                mat_penhoras=a.mat_penhoras,
-                mat_conjugue=a.mat_conjugue,
-                mat_prop_confere=a.mat_prop_confere,
-                mat_proprietario_pj=a.mat_proprietario_pj,
-                mat_penhora_averbada=a.mat_penhora_averbada,
-                mat_usufruto=a.mat_usufruto,
-                mat_indisp=a.mat_indisp,
-                mat_vagas_mat=a.mat_vagas_mat,
-                
-                # --- Seção 3 ---
-                edt_objeto=a.edt_objeto,
-                edt_vlr_avaliacao=a.edt_vlr_avaliacao,
-                edt_percentual_minimo=a.edt_percentual_minimo,
-                edt_data_avaliacao=a.edt_data_avaliacao,
-                edt_parcelamento=a.edt_parcelamento,
-                edt_iptu_subroga=a.edt_iptu_subroga,
-                edt_condo_claro=a.edt_condo_claro,
-                
-                # --- Seção 4 & 5 ---
-                edt_posse_status=a.edt_posse_status,
-                edt_posse_estrategia=a.edt_posse_estrategia,
-                fin_lance=a.fin_lance,
-                fin_itbi=a.fin_itbi,
-                fin_dividas=a.fin_dividas,
-                recomendacao_ia=a.parecer_juridico, # Alias
-                
-                # --- Campos Legado / Financeiros ---
-                parecer_juridico=a.analise_ia, # Nota: analise_ia no domain -> parecer_juridico no DB
-                valor_venda_estimado=a.valor_venda_estimado,
-                custo_reforma=a.custo_reforma,
-                custo_desocupacao=a.custo_desocupacao,
-                divida_condominio=a.divida_condominio,
-                divida_iptu=a.divida_iptu,
-                divida_subroga=a.divida_subroga,
-                risco_judicial=a.risco_judicial.value if a.risco_judicial else None,
-                data_atualizacao=datetime.now()
-            )
-
-            # Upsert dinâmico (atualiza tudo que não é chave primária)
-            update_cols = {c.name: c for c in stmt.excluded if not c.primary_key}
-            
-            upsert_stmt = stmt.on_conflict_do_update(
-                index_elements=['site', 'id_leilao', 'usuario_id'],
-                set_=update_cols
-            )
-
-            self.session.execute(upsert_stmt)
-            self.session.commit()
-        except Exception as e:
-            self.session.rollback()
-            raise e
 
     def get_detailed_analysis(self, site: str, id_leilao: str, user_id: str) -> Optional[DetailedAnalysis]:
         """
-        Recupera e converte o model ORM para a entidade DetailedAnalysis.
-        Garante conversão de tipos (Float) e Enums.
+        Recupera a análise detalhada. Retorna None se não existir.
+        Inclui proteção contra transações falhas.
         """
-        row = self.session.query(LeilaoAnaliseDetalhadaModel).filter_by(
-            site=site, id_leilao=id_leilao, usuario_id=user_id
-        ).first()
+        try:
+            row = self.session.query(LeilaoAnaliseDetalhadaModel).filter_by(
+                site=site, id_leilao=id_leilao, usuario_id=user_id
+            ).first()
 
-        if not row:
-            return DetailedAnalysis(site=site, id_leilao=id_leilao, usuario_id=user_id)
-
-        # Helper interno para Enums
-        def safe_enum(enum_class, value):
-            try:
-                return enum_class(value) if value else None
-            except ValueError:
+            if not row:
                 return None
 
-        # Helper para Listas JSON
-        def safe_list(val):
-            if val is None: return []
-            if isinstance(val, list): return val
-            return []
+            # Helper interno seguro
+            def safe_enum(enum_cls, value):
+                try:
+                    return enum_cls(value) if value else None
+                except ValueError:
+                    return None
 
-        return DetailedAnalysis(
-            site=row.site,
-            id_leilao=row.id_leilao,
-            usuario_id=row.usuario_id,
+            return DetailedAnalysis(
+                site=row.site,
+                id_leilao=row.id_leilao,
+                usuario_id=row.usuario_id,
+                
+                # --- Seção 1 ---
+                proc_num=row.proc_num,
+                proc_executados=row.proc_executados if isinstance(row.proc_executados, list) else [],
+                proc_adv_exec=row.proc_adv_exec,
+                proc_citacao=row.proc_citacao,
+                proc_conjuge=safe_enum(ConjugeStatus, row.proc_conjuge),
+                proc_credores=row.proc_credores,
+                proc_recursos=row.proc_recursos,
+                proc_recursos_obs=row.proc_recursos_obs,
+                proc_coproprietario_intimado=row.proc_coproprietario_intimado,
+                proc_natureza_execucao=safe_enum(NaturezaExecucao, row.proc_natureza_execucao),
+                proc_justica_gratuita=row.proc_justica_gratuita,
+                proc_especie_credito=safe_enum(EspecieCredito, row.proc_especie_credito),
+                proc_debito_atualizado=float(row.proc_debito_atualizado or 0.0),
+                proc_avaliacao_imovel=row.proc_avaliacao_imovel,
+                vlr_avaliacao=float(row.vlr_avaliacao or 0.0),
+
+                # --- Seção 2 ---
+                mat_num=row.mat_num,
+                mat_proprietario=row.mat_proprietario if isinstance(row.mat_proprietario, list) else [],
+                mat_documentos_proprietarios=row.mat_documentos_proprietarios if isinstance(row.mat_documentos_proprietarios, list) else [],
+                mat_penhoras=row.mat_penhoras if isinstance(row.mat_penhoras, list) else [],
+                mat_conjugue=str(row.mat_conjugue) if row.mat_conjugue is not None else "",
+                mat_prop_confere=row.mat_prop_confere,
+                mat_proprietario_pj=row.mat_proprietario_pj,
+                mat_penhora_averbada=row.mat_penhora_averbada,
+                mat_usufruto=row.mat_usufruto,
+                mat_indisp=row.mat_indisp,
+                mat_vagas_mat=str(row.mat_vagas_mat) if row.mat_vagas_mat is not None else "",
+
+                # --- Seção 3 ---
+                edt_objeto=row.edt_objeto,
+                edt_vlr_avaliacao=float(row.edt_vlr_avaliacao or 0.0),
+                edt_percentual_minimo=float(row.edt_percentual_minimo or 0.0),
+                edt_data_avaliacao=row.edt_data_avaliacao,
+                edt_parcelamento=row.edt_parcelamento,
+                edt_iptu_subroga=row.edt_iptu_subroga,
+                edt_condo_claro=row.edt_condo_claro,
+
+                # --- Seção 4 ---
+                edt_posse_status=safe_enum(OccupationStatus, row.edt_posse_status),
+                #edt_posse_estrategia=row.edt_posse_estrategia,
+
+                # --- Seção 5 ---
+                fin_lance=float(row.fin_lance or 0.0),
+                fin_itbi=float(row.fin_itbi or 0.0),
+                fin_dividas=float(row.fin_dividas or 0.0),
+                recomendacao_ia=row.recomendacao_ia,
+
+                # --- Legado ---
+                analise_ia=row.parecer_juridico,
+                risco_judicial=safe_enum(RiskLevel, row.risco_judicial) if row.risco_judicial else RiskLevel.BAIXO,
+                valor_venda_estimado=float(row.valor_venda_estimado or 0.0),
+                custo_reforma=float(row.custo_reforma or 0.0),
+                custo_desocupacao=float(row.custo_desocupacao or 0.0),
+                divida_condominio=float(row.divida_condominio or 0.0),
+                divida_iptu=float(row.divida_iptu or 0.0),
+                divida_subroga=row.divida_subroga if row.divida_subroga is not None else True,
+            )
+        except Exception as e:
+            # CRÍTICO: Se der erro (ex: coluna não existe), faz rollback para não travar a próxima requisição
+            self.session.rollback()
+            # Opcional: printar o erro real para debug
+            print(f"Erro ao buscar auditoria: {e}")
+            raise e
             
-            # --- Seção 1: Processo Judicial ---
-            proc_num=row.proc_num,
-            proc_executados=safe_list(row.proc_executados), # Lista segura
-            proc_adv_exec=row.proc_adv_exec,
-            proc_citacao=row.proc_citacao,
-            proc_conjuge=safe_enum(ConjugeStatus, row.proc_conjuge),
-            proc_credores=row.proc_credores,
-            proc_recursos=row.proc_recursos,
-            proc_recursos_obs=row.proc_recursos_obs,
-            proc_coproprietario_intimado=row.proc_coproprietario_intimado,
-            proc_natureza_execucao=safe_enum(NaturezaExecucao, row.proc_natureza_execucao),
-            proc_justica_gratuita=row.proc_justica_gratuita,
-            proc_especie_credito=safe_enum(EspecieCredito, row.proc_especie_credito),
-            proc_debito_atualizado=float(row.proc_debito_atualizado or 0.0),
-            proc_avaliacao_imovel=row.proc_avaliacao_imovel,
-            vlr_avaliacao=float(row.vlr_avaliacao or 0.0), # NOVO: Campo recuperado do banco
-            
-            # --- Seção 2: Matrícula e Gravames ---
-            mat_num=row.mat_num,
-            mat_proprietario=safe_list(row.mat_proprietario),
-            mat_penhoras=safe_list(row.mat_penhoras),
-            mat_conjugue=row.mat_conjugue,
-            mat_prop_confere=row.mat_prop_confere,
-            mat_proprietario_pj=row.mat_proprietario_pj,
-            mat_penhora_averbada=row.mat_penhora_averbada,
-            mat_usufruto=row.mat_usufruto,
-            mat_indisp=row.mat_indisp,
-            mat_vagas_mat=row.mat_vagas_mat,
+            # Helper interno para Enums
+            def safe_enum(enum_class, value):
+                try:
+                    return enum_class(value) if value else None
+                except ValueError:
+                    return None
 
-            # --- Seção 3: Edital e Dívidas ---
-            edt_objeto=row.edt_objeto,
-            edt_vlr_avaliacao=float(row.edt_vlr_avaliacao or 0.0),
-            edt_percentual_minimo=float(row.edt_percentual_minimo) if row.edt_percentual_minimo else None,
-            edt_data_avaliacao=row.edt_data_avaliacao,
-            edt_parcelamento=row.edt_parcelamento,
-            edt_iptu_subroga=row.edt_iptu_subroga,
-            edt_condo_claro=row.edt_condo_claro,
-
-            # --- Seção 4: Situação Física ---
-            edt_posse_status=row.edt_posse_status,
-            edt_posse_estrategia=row.edt_posse_estrategia,
-
-            # --- Seção 5: Financeiro ---
-            fin_lance=float(row.fin_lance or 0.0),
-            fin_itbi=float(row.fin_itbi or 0.0),
-            fin_dividas=float(row.fin_dividas or 0.0),
-            recomendacao_ia=row.recomendacao_ia,
-
-            # --- Legado e Seção 6 ---
-            analise_ia=row.parecer_juridico,
-            risco_judicial=safe_enum(RiskLevel, row.risco_judicial) if row.risco_judicial else RiskLevel.BAIXO,
-            valor_venda_estimado=float(row.valor_venda_estimado or 0.0),
-            custo_reforma=float(row.custo_reforma or 0.0),
-            custo_desocupacao=float(row.custo_desocupacao or 0.0),
-            divida_condominio=float(row.divida_condominio or 0.0),
-            divida_iptu=float(row.divida_iptu or 0.0),
-            divida_subroga=row.divida_subroga or False,
-            data_atualizacao=row.data_atualizacao
-        )
+            # Helper para Listas JSON
+            def safe_list(val):
+                if val is None: return []
+                if isinstance(val, list): return val
+                return []
 
     def get_auction(self, site: str, id_leilao: str) -> Optional[Auction]:
         """Busca dados básicos do leilão para o cabeçalho."""

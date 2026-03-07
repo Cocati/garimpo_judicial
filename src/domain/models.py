@@ -222,6 +222,9 @@ class DetailedAnalysis:
     mat_usufruto: Optional[bool] = None
     mat_indisp: Optional[bool] = None
     mat_vagas_mat: Optional[bool] = None
+    # --- Novos Campos: Seção Matrícula (03/03/2026) ---
+    mat_documentos_proprietarios: List[str] = field(default_factory=list)
+
 
     # --- Seção 3: Edital e Dívidas ---
     edt_objeto: Optional[str] = None
@@ -234,7 +237,7 @@ class DetailedAnalysis:
 
     # --- Seção 4: Situação Física ---
     edt_posse_status: Optional[str] = None # Mapeado do ocupacao_status legado
-    edt_posse_estrategia: Optional[str] = None
+    #edt_posse_estrategia: Optional[str] = None
 
     # --- Seção 5: Financeiro ---
     fin_lance: float = 0.0

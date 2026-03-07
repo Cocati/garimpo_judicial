@@ -132,6 +132,7 @@ def render_auditoria_v2(services, user_id: str, site: str, id_leilao: str):
             st.markdown("#### 🚨 Checklist de Nulidades")
             
             col_chk1, col_chk2 = st.columns(2)
+            
             with col_chk1:
                 # 1. Citação (CRÍTICO)
                 choice_citacao = st.radio(
@@ -184,19 +185,110 @@ def render_auditoria_v2(services, user_id: str, site: str, id_leilao: str):
             if analysis.proc_recursos:
                 analysis.proc_recursos_obs = st.text_area("Detalhe os recursos", value=analysis.proc_recursos_obs or "")
 
-        # --- TAB 2: MATRÍCULA ---
-        with tabs[1]:
-            st.caption("Análise Registral")
-            c1, c2 = st.columns(2)
-            with c1:
-                analysis.mat_num = st.text_input("Nº Matrícula", value=analysis.mat_num or "", key="k_mat_num")
-                analysis.mat_prop_confere = st.checkbox("Proprietário == Executado?", value=bool(analysis.mat_prop_confere), key="k_mat_conf")
-                analysis.mat_proprietario_pj = st.checkbox("Proprietário é PJ?", value=bool(analysis.mat_proprietario_pj), key="k_mat_pj")
-            with c2:
-                st.markdown("**Ônus Relevantes**")
-                analysis.mat_usufruto = st.checkbox("Possui Usufruto?", value=bool(analysis.mat_usufruto), key="k_usu")
-                analysis.mat_indisp = st.checkbox("Possui Indisponibilidade?", value=bool(analysis.mat_indisp), key="k_ind")
-                analysis.mat_penhora_averbada = st.checkbox("Penhora averbada na matrícula?", value=bool(analysis.mat_penhora_averbada), key="k_pen_av")
+        # --- TAB 2: MATRÍCULA (Refatorada para Padronização de Experiência) ---
+    with tabs[1]:
+        st.caption("Análise Registral e Verificação de Matrícula")
+        c1, c2, c3 = st.columns([2, 1, 1])
+        
+        with c1:
+            analysis.mat_num = st.text_input(
+                "Nº Matrícula", 
+                value=analysis.mat_num or "", 
+                key="k_mat_num"
+            )
+             # Lista de Proprietários
+            prop_text = st.text_area(
+                "Proprietários (um por linha)",
+                value="\n".join(analysis.mat_proprietario),
+                height=100,
+                key="input_mat_proprietario"
+            )
+            # Converte string multilinhas para lista, removendo vazios
+            analysis.mat_proprietario = [p.strip() for p in prop_text.split('\n') if p.strip()]
+
+             # Lista de Documentos
+            docs_text = st.text_area(
+            "Documentos dos Proprietários (CPF/CNPJ - um por linha)",
+            value="\n".join(analysis.mat_documentos_proprietarios),
+            height=100,
+            key="input_mat_docs"
+        )
+            analysis.mat_documentos_proprietarios = [d.strip() for d in docs_text.split('\n') if d.strip()]
+
+            # Lista de Penhoras (Full width)
+            penhoras_text = st.text_area(
+            "Penhoras e Averbações Ativas (uma por linha)",
+            value="\n".join(analysis.mat_penhoras),
+            help="Liste as penhoras (R-X) ou averbações (Av-X) que constam na matrícula.",
+            key="input_mat_penhoras"
+        )
+            analysis.mat_penhoras = [p.strip() for p in penhoras_text.split('\n') if p.strip()]
+
+
+        with c2:
+           #st.markdown("**Ônus Relevantes**")
+   
+            # Padronização: Proprietário == Executado
+            choice_prop = st.radio(
+            "Proprietário coincide com o Executado?",
+            options=["Sim", "Não", "N/A"],
+            index=get_na_index(analysis.mat_prop_confere),
+            horizontal=True,
+            key="k_mat_conf_radio"
+        )
+            analysis.mat_prop_confere = map_na_option(choice_prop)
+                
+            # Padronização: Penhora Averbada
+            choice_pen = st.radio(
+            "Penhora averbada na matrícula?",
+            options=["Sim", "Não", "N/A"],
+            index=get_na_index(analysis.mat_penhora_averbada),
+            horizontal=True,
+            key="k_pen_av_radio"
+        )
+            analysis.mat_penhora_averbada = map_na_option(choice_pen)
+             # Padronização: Usufruto
+            choice_usu = st.radio(
+            "Possui Usufruto?",
+            options=["Sim", "Não", "N/A"],
+            index=get_na_index(analysis.mat_usufruto),
+            horizontal=True,
+            key="k_usu_radio"
+        )
+            analysis.mat_usufruto = map_na_option(choice_usu)
+
+        with c3:
+            
+            # Padronização: Cônjuge
+            choice_conj = st.radio(
+            "Proprietário tem conjugue??",
+            options=["Sim", "Não", "N/A"],
+            index=get_na_index(analysis.mat_conjugue),
+            horizontal=True,
+            key="k_mat_conj_radio"
+        )
+            analysis.mat_conjugue = map_na_option(choice_conj)
+            
+            # Padronização: Proprietário PJ
+            choice_pj = st.radio(
+            "Proprietário é Pessoa Jurídica (PJ)?",
+            options=["Sim", "Não", "N/A"],
+            index=get_na_index(analysis.mat_proprietario_pj),
+            horizontal=True,
+            key="k_mat_pj_radio"
+        )
+            analysis.mat_proprietario_pj = map_na_option(choice_pj)
+        
+            # Padronização: Indisponibilidade
+            choice_ind = st.radio(
+            "Possui Indisponibilidade?",
+            options=["Sim", "Não", "N/A"],
+            index=get_na_index(analysis.mat_indisp),
+            horizontal=True,
+            key="k_ind_radio"
+        )
+            analysis.mat_indisp = map_na_option(choice_ind)
+
 
         # --- TAB 3: EDITAL ---
         with tabs[2]:
@@ -228,7 +320,7 @@ def render_auditoria_v2(services, user_id: str, site: str, id_leilao: str):
             with c2:
                 analysis.custo_desocupacao = st.number_input("Est. Desocupação (R$)", value=float(analysis.custo_desocupacao or 0.0), key="k_desoc")
             
-            analysis.edt_posse_estrategia = st.text_area("Estratégia de Posse", value=analysis.edt_posse_estrategia or "", key="k_posse_est")
+            #analysis.edt_posse_estrategia = st.text_area("Estratégia de Posse", value=analysis.edt_posse_estrategia or "", key="k_posse_est")
 
         # --- TAB 5: FINANCEIRO ---
         with tabs[4]:

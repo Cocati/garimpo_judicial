@@ -91,6 +91,11 @@ class LeilaoAnaliseDetalhadaModel(Base):
     mat_usufruto = Column(Boolean, nullable=True)
     mat_indisp = Column(Boolean, nullable=True)
     mat_vagas_mat = Column(Boolean, nullable=True)
+    # --- Novos Campos: Seção Matrícula ---
+    mat_proprietario = Column(JSONB, default=[])
+    mat_documentos_proprietarios = Column(JSONB, default=[])
+    mat_penhoras = Column(JSONB, default=[])
+    mat_conjugue = Column(Boolean, default=None)
 
     # --- Seção 3: Edital e Dívidas ---
     edt_objeto = Column(String(20), nullable=True)
@@ -103,7 +108,7 @@ class LeilaoAnaliseDetalhadaModel(Base):
 
     # --- Seção 4: Situação Física ---
     edt_posse_status = Column(String(50), nullable=True)
-    edt_posse_estrategia = Column(String(50), nullable=True)
+    #edt_posse_estrategia = Column(String(50), nullable=True)
 
     # --- Seção 5: Financeiro ---
     fin_lance = Column(Numeric(15, 2), default=0.00)

@@ -98,5 +98,5 @@ cd /home/cocatis/Projeto_n8n/garimpo_judicial
 git add .
 git commit -m "fix: inclusão de novos campos no processo"
 git tag -a v1.2.3 -m "ajuste workflow CI"
-git push origin v1.2.2
+git push origin v1.2.3
 
