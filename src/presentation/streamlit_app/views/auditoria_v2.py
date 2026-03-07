@@ -1,4 +1,5 @@
 import streamlit as st
+
 from datetime import date
 from src.domain.models import (
     DetailedAnalysis, ConjugeStatus, NaturezaExecucao, 
@@ -7,6 +8,7 @@ from src.domain.models import (
 from src.domain.isj_calculator import IsjCalculator
 from src.presentation.streamlit_app.components.alertas_engine import AlertasEngine
 from src.presentation.streamlit_app.components.isj_gauge import render_isj_gauge
+
 
 def render_auditoria_v2(services, user_id: str, site: str, id_leilao: str):
     """
@@ -42,18 +44,32 @@ def render_auditoria_v2(services, user_id: str, site: str, id_leilao: str):
     if auction_data:
         with st.container(border=True):
             col_img, col_info = st.columns([1, 4])
+            
+            # Coluna da Imagem
             with col_img:
                 if auction_data.imagem_capa:
                     st.image(auction_data.imagem_capa, use_container_width=True)
                 else:
                     st.info("📷 Sem foto")
+                    
+            # Coluna de Informações (Dados reestruturados em 3 linhas)
             with col_info:
                 st.subheader(f"📍 {auction_data.titulo or 'Leilão Identificado'}")
-                c_kpi1, c_kpi2, c_kpi3 = st.columns(3)
-                c_kpi1.markdown(f"**1ª Praça:** {auction_data.data_1_praca.strftime('%d/%m/%Y') if auction_data.data_1_praca else '-'}")
-                c_kpi2.markdown(f"**Valor 2ª P:** R$ {auction_data.valor_2_praca:,.2f}")
-                c_kpi3.markdown(f"🔗 [Acesse o Edital]({auction_data.link_detalhe})")
-
+                
+                # Linha 1: Datas das Praças
+                c_data1, c_data2 = st.columns(2)
+                data_1_str = auction_data.data_1_praca.strftime('%d/%m/%Y') if auction_data.data_1_praca else '-'
+                data_2_str = auction_data.data_2_praca.strftime('%d/%m/%Y') if auction_data.data_2_praca else '-'
+                c_data1.markdown(f"**Data 1ª Praça:** {data_1_str}")
+                c_data2.markdown(f"**Data 2ª Praça:** {data_2_str}")
+                
+                # Linha 2: Valores das Praças
+                c_val1, c_val2 = st.columns(2)
+                c_val1.markdown(f"**Valor 1ª Praça:** R$ {auction_data.valor_1_praca:,.2f}")
+                c_val2.markdown(f"**Valor 2ª Praça:** R$ {auction_data.valor_2_praca:,.2f}")
+                
+                # Linha 3: Link do Edital
+                st.markdown(f"🔗 [Acesse o Edital]({auction_data.link_detalhe})")
     # 3. Layout Principal
     col_form, col_stats = st.columns([3, 1])
 
@@ -65,7 +81,7 @@ def render_auditoria_v2(services, user_id: str, site: str, id_leilao: str):
 
         # --- TAB 1: PROCESSO JUDICIAL (Foco da Refatoração) ---
         with tabs[0]:
-            st.caption("Análise do Processo Judicial e Riscos Processuais")
+            st.markdown("Análise do Processo Judicial e Riscos Processuais")
             
             # Bloco A: Dados Básicos e Executados
             c1, c2 = st.columns([1, 1])
@@ -187,7 +203,7 @@ def render_auditoria_v2(services, user_id: str, site: str, id_leilao: str):
 
         # --- TAB 2: MATRÍCULA (Refatorada para Padronização de Experiência) ---
     with tabs[1]:
-        st.caption("Análise Registral e Verificação de Matrícula")
+        st.markdown("Análise Registral e Verificação de Matrícula")
         c1, c2, c3 = st.columns([2, 1, 1])
         
         with c1:
@@ -292,7 +308,7 @@ def render_auditoria_v2(services, user_id: str, site: str, id_leilao: str):
 
         # --- TAB 3: EDITAL ---
         with tabs[2]:
-            st.caption("Regras e Condições")
+            st.markdown("Regras e Condições")
             c1, c2 = st.columns(2)
             with c1:
                 analysis.edt_objeto = st.text_input("Descrição do Objeto", value=analysis.edt_objeto or "", key="k_edt_obj")
@@ -307,7 +323,7 @@ def render_auditoria_v2(services, user_id: str, site: str, id_leilao: str):
 
         # --- TAB 4: SITUAÇÃO ---
         with tabs[3]:
-            st.caption("Ocupação e Conservação")
+            st.markdown("Ocupação e Conservação")
             c1, c2 = st.columns(2)
             with c1:
                 analysis.edt_posse_status = st.selectbox(
@@ -324,7 +340,7 @@ def render_auditoria_v2(services, user_id: str, site: str, id_leilao: str):
 
         # --- TAB 5: FINANCEIRO ---
         with tabs[4]:
-            st.caption("Viabilidade Econômica")
+            st.markdown("Viabilidade Econômica")
             c1, c2 = st.columns(2)
             with c1:
                 analysis.fin_lance = st.number_input("Lance Máximo Planejado (R$)", value=float(analysis.fin_lance or 0.0), key="k_fin_lance")
@@ -336,7 +352,7 @@ def render_auditoria_v2(services, user_id: str, site: str, id_leilao: str):
 
         # --- TAB 6: PARECER ---
         with tabs[5]:
-            st.caption("Conclusão do Especialista")
+            st.markdown("Conclusão do Especialista")
             options_risk = list(RiskLevel)
             try: idx_risk = options_risk.index(analysis.risco_judicial)
             except: idx_risk = 0
@@ -390,6 +406,9 @@ def render_auditoria_v2(services, user_id: str, site: str, id_leilao: str):
                 st.balloons()
                 st.success("Auditoria finalizada!")
                 # Idealmente redirecionar ou limpar estado aqui
+
+       
+                NO_BID = "NO_BID"         # Rejeitado na análise detalhada (Aba 3)
                 
     # 6. Auto-save Silencioso (Background)
     # Executa a cada interação para garantir que nada se perca

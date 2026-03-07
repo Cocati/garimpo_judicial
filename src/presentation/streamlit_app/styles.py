@@ -1,26 +1,54 @@
 import streamlit as st
 
-def apply_custom_styles():
+def load_global_css():
+    """
+    Centraliza a injeção de CSS da aplicação para garantir que os estilos
+    sejam aplicados a cada rerun do Streamlit, evitando perda de estado.
+    """
     st.markdown("""
     <style>
-        /* Força altura da linha */
-        div[data-testid="stDataEditor"] table {
-            --row-height: 150px !important;
+        /* --- ESTILOS GERAIS (Migrados do main.py) --- */
+        .main-header {font-size: 24px; font-weight: bold; color: #333;}
+        .stApp {background-color: #0e1117;}
+
+        /* --- ESTILOS DE FORMULÁRIO / CARTEIRA (Migrados do carteira.py) --- */
+        /* BASE */
+        div[data-testid="stTextInput"] > div[data-baseweb="input"],
+        div[data-testid="stTextArea"] > div[data-baseweb="base-input"] {
+            background-color: #223247 !important;
+            border: 1px solid #4A5568 !important;
+            border-radius: 4px !important;
+            transition: all 0.25s ease-in-out;
         }
-        div[data-testid="stDataEditor"] td {
-            vertical-align: middle !important;
-            font-size: 16px;
+
+        /* TEXTO */
+        input, textarea {
+            color: #FFFFFF !important;
+            font-family: 'Source Sans Pro', sans-serif !important;
         }
-        /* Ajuste de container para remover espaços brancos sobrando */
-        .block-container {
-            padding-top: 1rem;
-            padding-bottom: 2rem;
-            max-width: 98% !important;
+
+        textarea::placeholder,
+        input::placeholder {
+            color: #9CA3AF !important;
         }
-        div[data-testid="stDataEditor"] th {
-            background-color: #f0f2f6;
-            min-height: 40px;
-            font-size: 15px;
+
+        /* FOCO */
+        div[data-testid="stTextInput"] > div[data-baseweb="input"]:focus-within,
+        div[data-testid="stTextArea"] > div[data-baseweb="base-input"]:focus-within {
+            border-color: #00D1FF !important;
+            box-shadow: 0 0 8px rgba(0,209,255,0.45) !important;
+        }
+
+        /* CAMPO VAZIO */
+        div[data-testid="stTextInput"] div[data-baseweb="input"] input:placeholder-shown,
+        div[data-testid="stTextArea"] div[data-baseweb="base-input"] textarea:placeholder-shown {
+            border: 2px solid #FFA500 !important;
+        }
+
+        /* PENHORAS */
+        div[data-testid="stTextArea"]:has(textarea[aria-label*="Penhoras"]) {
+            border-left: 5px solid #FF4B4B !important;
+            padding-left: 5px;
         }
     </style>
     """, unsafe_allow_html=True)

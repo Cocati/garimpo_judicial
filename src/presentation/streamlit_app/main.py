@@ -30,19 +30,15 @@ try:
     )
     # Importa a Nova Página
     from src.presentation.streamlit_app.views.carteira import render_carteira
+    from src.presentation.streamlit_app.styles import load_global_css
 except ImportError as e:
     st.error(f"Erro de Importação: {e}")
     st.stop()
 
-# --- CSS GLOBAL ---
-st.markdown("""
-<style>
-    .main-header {font-size: 24px; font-weight: bold; color: #333;}
-    .stApp {background-color: #0e1117;}
-</style>
-""", unsafe_allow_html=True)
-
 def main():
+    # 0. Carrega Estilos Globais
+    load_global_css()
+
     # 1. Inicializa Serviços
     services = get_services()
     
