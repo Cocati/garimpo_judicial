@@ -158,14 +158,12 @@ def render_auditoria_v2(services, user_id: str, site: str, id_leilao: str):
                 analysis.proc_citacao = map_na_option(choice_citacao)
 
                 # 2. Cônjuge
-                options_conj = list(ConjugeStatus)
-                try: idx_conj = options_conj.index(analysis.proc_conjuge)
-                except: idx_conj = 2 # N/A
-                analysis.proc_conjuge = st.radio(
-                    "Cônjuge Intimado?", options=options_conj,
-                    index=idx_conj, horizontal=True, key="k_conjuge", format_func=lambda x: x.value
+                choice_conj = st.radio(
+                    "Cônjuge Intimado?", options=["Sim", "Não", "N/A"],
+                    index=get_na_index(analysis.proc_conjuge), horizontal=True, key="k_conjuge"
                 )
-
+                analysis.proc_citacao = map_na_option(choice_citacao)
+                
                 # 3. Justiça Gratuita
                 analysis.proc_justica_gratuita = st.toggle(
                     "Executado possui Justiça Gratuita?", 
@@ -394,7 +392,7 @@ def render_auditoria_v2(services, user_id: str, site: str, id_leilao: str):
         if bloqueado:
              st.error("🚫 **BLOQUEADO**\n\nNulidade crítica detectada (Citação ou Propriedade).")
         
-        col_btn1, col_btn2 = st.columns(2)
+        col_btn1, col_btn2, col_btn3 = st.columns(3)
         with col_btn1:
             if st.button("💾 Salvar", use_container_width=True, key="k_btn_save"):
                  services['save_rascunho'].execute(analysis)
@@ -408,7 +406,28 @@ def render_auditoria_v2(services, user_id: str, site: str, id_leilao: str):
                 # Idealmente redirecionar ou limpar estado aqui
 
        
-                NO_BID = "NO_BID"         # Rejeitado na análise detalhada (Aba 3)
+        with col_btn3:
+            # O botão de descartar NÃO usa 'disabled=bloqueado', pois nulidades são justamente o motivo de descarte.
+            if st.button("🗑️ OUT", use_container_width=True, key="k_btn_desc"):
+                # Invoca o Caso de Uso que criamos nas etapas anteriores
+                services['descartar_auditoria'].execute(analysis, user_id)
+                st.warning("Auditoria descartada e leilão rejeitado.", icon="🗑️")
+                
+                # Limpa o estado atual e força o recarregamento da tela para evitar dados fantasmas
+                if "current_analysis" in st.session_state:
+                    del st.session_state.current_analysis
+                
+                # 2. Limpa os dados da sessão para não causar vazamento de estado (State Leak)
+                if "current_analysis" in st.session_state:
+                    del st.session_state.current_analysis
+                
+                # 3. Pausa rápida para a mensagem de feedback ser lida pelo usuário
+                import time
+                time.sleep(1.5)
+                
+                # 4. Roteamento: Define a página de destino e força o reload
+                st.session_state.page = "listagem"
+                st.rerun()
                 
     # 6. Auto-save Silencioso (Background)
     # Executa a cada interação para garantir que nada se perca

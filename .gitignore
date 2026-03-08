@@ -13,11 +13,14 @@ project_context/
 sdd/
 src/project_context/
 garimpo_judicial_baseline/
+.git/
+.github
 
 #Outros arquivos
 consolida.py
 projeto_unificado.py
-
 generate_modules_context_garimpo_judicial.py
 .claudeignore
 comandos_git.md
+comandos.md
+

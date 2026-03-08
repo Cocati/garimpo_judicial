@@ -6,7 +6,7 @@ from sqlalchemy.dialects.postgresql import insert
 from src.application.interfaces import AuctionRepository
 from src.domain.models import (
     Auction, AuctionFilter, Evaluation, DetailedAnalysis, 
-    RiskLevel, OccupationStatus, ConjugeStatus, NaturezaExecucao, EspecieCredito
+    RiskLevel, OccupationStatus, ConjugeStatus, NaturezaExecucao, EspecieCredito,EvaluationStatus
 )
 from src.infra.database.models_sql import (
     LeilaoAnaliticoModel, LeilaoAvaliacaoModel, LeilaoAnaliseDetalhadaModel
@@ -240,22 +240,53 @@ class PostgresAuctionRepository(AuctionRepository):
             for r in results
         ]
     
-    def update_status(self, user_id: str, site: str, id_leilao: str, new_status: str):
-        query = text("""
-            UPDATE leiloes_avaliacoes
-            SET avaliacao = :status, updated_at = NOW()
-            WHERE usuario_id = :uid 
-              AND site = :site 
-              AND id_leilao = :id_leilao
-        """)
+    def update_status(self, user_id: str, site: str, id_leilao: str, new_status: EvaluationStatus) -> None:
+        """
+        Atualiza o status de avaliação do leilão para um utilizador.
+        Implementa UPSERT (ON CONFLICT DO UPDATE) sincronizado com o DDL da tabela leiloes_avaliacoes.
+        """
+        # 1. Recuperar o id_registro_bruto obrigatório (NOT NULL no DDL)
+        analitico = self.session.query(LeilaoAnaliticoModel.id_registro_bruto).filter_by(
+            site=site, 
+            id_leilao=id_leilao
+        ).first()
         
-        self.session.execute(query, {
-            "status": new_status,
-            "uid": user_id,
+        if not analitico:
+            raise RuntimeError(f"Falha de integridade: Leilão {id_leilao} no site {site} não encontrado na base analítica.")
+            
+        id_registro_bruto = analitico.id_registro_bruto
+
+        # 2. Definir os valores alinhados com as colunas reais (avaliacao, data_analise)
+        valores = {
+            "id_registro_bruto": id_registro_bruto,
             "site": site,
-            "id_leilao": id_leilao
-        })
-        self.session.commit()
+            "id_leilao": id_leilao,
+            "usuario_id": user_id,
+            "avaliacao": new_status.value, # Coluna correta conforme DDL
+            "data_analise": datetime.now(), 
+            "updated_at": datetime.now()
+        }
+
+        # 3. Criar a instrução de INSERT do SQLAlchemy (PostgreSQL Dialect)
+        stmt = insert(LeilaoAvaliacaoModel).values(**valores)
+
+        # 4. Aplicar a regra de ON CONFLICT (UPSERT)
+        # O DDL define a Primary Key como (usuario_id, site, id_leilao)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=['usuario_id', 'site', 'id_leilao'],
+            set_={
+                'avaliacao': stmt.excluded.avaliacao,
+                'updated_at': stmt.excluded.updated_at
+                # data_analise é mantida a da primeira inserção, apenas updated_at muda na atualização
+            }
+        )
+
+        try:
+            self.session.execute(stmt)
+            self.session.commit()
+        except Exception as e:
+            self.session.rollback()
+            raise RuntimeError(f"Falha ao atualizar o status do leilão (Upsert): {str(e)}")
         
     def update_auction_core_data(self, site: str, id_leilao: str, data: dict):
         auction = self.session.query(LeilaoAnaliticoModel).filter_by(

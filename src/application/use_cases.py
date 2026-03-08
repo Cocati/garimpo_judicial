@@ -126,3 +126,32 @@ class FinalizarAuditoriaUseCase:
         
         return novo_status.value
     
+class DescartarAuditoriaUseCase:
+    """
+    Caso de Uso: Descartar Auditoria Detalhada.
+    Interrompe o fluxo de análise e move o leilão para status de rejeição (NO_BID).
+    Ref: Ciclo de Vida do Leilão (COMPONENTS.md)
+    """
+    def __init__(self, repository: AuctionRepository):
+        self.repository = repository
+
+    def execute(self, analysis: DetailedAnalysis, user_id: str) -> None:
+        """
+        Executa o descarte da análise atual.
+        
+        :param analysis: A entidade DetailedAnalysis atual da sessão.
+        :param user_id: ID do usuário executando a ação.
+        """
+        # 1. Salva o rascunho atual para manter histórico de dados parciais preenchidos 
+        # (auditoria passiva de motivos de descarte)
+        self.repository.save_auditoria_rascunho(analysis)
+        
+        # 2. Atualiza o status do leilão para NO_BID (fim da linha na Aba 3)
+        # O Enum DESCARTAR é exclusivo da Triagem (Aba 1). Na auditoria_v2 usamos NO_BID.
+        self.repository.update_status(
+            user_id=user_id,
+            site=analysis.site,
+            id_leilao=analysis.id_leilao,
+            new_status=EvaluationStatus.NO_BID
+        )
+    
