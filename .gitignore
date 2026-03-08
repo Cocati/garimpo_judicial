@@ -14,7 +14,8 @@ sdd/
 src/project_context/
 garimpo_judicial_baseline/
 .git/
-.github
+.github/
+sdd/garimpo-analise-jurdica/
 
 #Outros arquivos
 consolida.py
