@@ -44,31 +44,110 @@ def _render_portfolio_list(services, user_id):
     """Renderiza a listagem segmentada por abas."""
     # Garante que temos o caso de uso correto
     all_items = services["get_portfolio_auctions"].execute(user_id)
-    
+
+    # Calcula o valor máximo para o slider de forma dinâmica
+    all_values = [i.valor_2_praca for i in all_items if i.valor_2_praca and i.valor_2_praca > 0]
+    max_slider_value = int(max(all_values)) if all_values else 1000000
+
     # Categorização baseada no EvaluationStatus
     items_analisar = [i for i in all_items if i.status_carteira == 'ANALISAR']
     items_participar = [i for i in all_items if i.status_carteira == 'PARTICIPAR']
     items_descartados = [i for i in all_items if i.status_carteira == 'NO_BID']
 
     tabs = st.tabs([
-        f"📥 A Analisar ({len(items_analisar)})", 
-        f"🚀 Participar ({len(items_participar)})", 
+        f"📥 A Analisar ({len(items_analisar)})",
+        f"🚀 Participar ({len(items_participar)})",
         f"🗑️ Descartados ({len(items_descartados)})"
     ])
 
     with tabs[0]:
         if not items_analisar:
             st.info("Sua esteira de análise está vazia.")
-        for auction in items_analisar:
-            _render_card(auction, suffix="analisar") 
+        else:
+            with st.container(border=True):
+                filters = _render_filters("analisar", max_slider_value, allow_sorting=True)
+
+            filtered_items = _apply_filters(items_analisar, filters, max_slider_value)
+            st.caption(f"Exibindo {len(filtered_items)} de {len(items_analisar)} leilões.")
+
+            for auction in filtered_items:
+                _render_card(auction, suffix="analisar")
 
     with tabs[1]:
-        for auction in items_participar:
-            _render_card(auction, suffix="participar", is_participating=True)
+        if not items_participar:
+            st.info("Nenhum leilão na fase de participação.")
+        else:
+            with st.container(border=True):
+                filters = _render_filters("participar", max_slider_value, allow_sorting=True)
+
+            filtered_items = _apply_filters(items_participar, filters, max_slider_value)
+            st.caption(f"Exibindo {len(filtered_items)} de {len(items_participar)} leilões.")
+
+            for auction in filtered_items:
+                _render_card(auction, suffix="participar", is_participating=True)
 
     with tabs[2]:
-        for auction in items_descartados:
-            _render_card(auction, suffix="descartado", is_readonly=True)
+        if not items_descartados:
+            st.info("Nenhum leilão descartado.")
+        else:
+            with st.container(border=True):
+                filters = _render_filters("descartados", max_slider_value, allow_sorting=False)
+
+            filtered_items = _apply_filters(items_descartados, filters, max_slider_value)
+            st.caption(f"Exibindo {len(filtered_items)} de {len(items_descartados)} leilões.")
+
+            for auction in filtered_items:
+                _render_card(auction, suffix="descartado", is_readonly=True)
+
+
+def _render_filters(prefix: str, max_value: int, allow_sorting: bool = True):
+    """Renderiza um conjunto de filtros padronizados."""
+    filters = {}
+    st.markdown("##### Filtros e Ordenação")
+    c1, c2 = st.columns([2, 1])
+    with c1:
+        filters['search'] = st.text_input("🔎 Buscar por Título ou ID", key=f"search_{prefix}")
+
+        min_val, max_val = st.slider(
+            "💰 Filtrar por Valor (2ª Praça)",
+            min_value=0,
+            max_value=max_value,
+            value=(0, max_value),
+            step=10000,
+            key=f"val_slider_{prefix}",
+            format="R$ %d"
+        )
+        filters['min_val'] = min_val
+        filters['max_val'] = max_val
+
+    with c2:
+        if allow_sorting:
+            filters['sort_date'] = st.checkbox("Ordenar por data do leilão", value=True, key=f"sort_{prefix}")
+
+    return filters
+
+
+def _apply_filters(items, filters, max_slider_value):
+    """Aplica os filtros a uma lista de leilões."""
+    filtered = items
+
+    search_term = filters.get('search', '').lower()
+    if search_term:
+        filtered = [i for i in filtered if
+                    (i.titulo and search_term in i.titulo.lower()) or
+                    (i.id_leilao and search_term in i.id_leilao.lower())]
+
+    min_val = filters.get('min_val', 0)
+    max_val = filters.get('max_val', float('inf'))
+    if min_val > 0 or max_val < max_slider_value:
+        filtered = [i for i in filtered if i.valor_2_praca and min_val <= i.valor_2_praca <= max_val]
+
+    if filters.get('sort_date', False):
+        # Usa sorted() para retornar uma nova lista ordenada, sem modificar a original
+        filtered = sorted(filtered, key=lambda x: x.data_2_praca if x.data_2_praca else datetime(9999, 1, 1))
+
+    return filtered
+
 
 def _render_card(auction, suffix, is_participating=False, is_readonly=False):
     """Card de visualização do leilão com botões de ação únicos."""
