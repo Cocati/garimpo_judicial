@@ -21,6 +21,16 @@ class EvaluationStatus(str, Enum):
     DESCARTAR = "DESCARTAR"   # Rejeitado na triagem
     NO_BID = "NO_BID"         # Rejeitado na análise detalhada (Aba 3)
 
+class NoBidReason(str, Enum):
+    """Motivos para descarte na análise detalhada (NO_BID)."""
+    RISCO_JURIDICO = "Risco Jurídico/Processual"
+    PROBLEMA_MATRICULA = "Ônus/Problema na Matrícula"
+    CONDICAO_FINANCEIRA = "Condição Financeira/Pagamento"
+    ESTRATEGIA_CAPITAL = "Estratégia/Capital Indisponível"
+    SITUACAO_IMOVEL = "Situação Física/Ocupação do Imóvel"
+    NULIDADE_CRITICA = "Nulidade Crítica Impeditiva"
+    OUTRO = "Outro"
+
 class RiskLevel(str, Enum):
     """
     Níveis de risco.
@@ -117,6 +127,7 @@ class Auction:
     data_1_praca: Optional[datetime] = None
     data_2_praca: Optional[datetime] = None
     status_carteira: Optional[str] = None
+    no_bid_reason: Optional[str] = None
 
     @property
     def unique_id(self) -> str:
@@ -255,6 +266,10 @@ class DetailedAnalysis:
     divida_iptu: float = 0.0
     divida_subroga: bool = False
     data_atualizacao: Optional[datetime] = field(default_factory=datetime.now)
+
+    # --- Novos Campos: Motivo do Descarte (NO_BID) ---
+    no_bid_reason: Optional[NoBidReason] = None
+    no_bid_observation: Optional[str] = None
 
     # --- Propriedades de Compatibilidade (Getters) ---
     @property
