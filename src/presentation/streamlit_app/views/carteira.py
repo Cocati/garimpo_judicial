@@ -2,6 +2,7 @@ import streamlit as st
 
 from datetime import datetime, time
 from src.presentation.streamlit_app.views.auditoria_v2 import render_auditoria_v2
+from src.domain.models import EvaluationStatus
 
 def render_carteira(services, user_id):
     """
@@ -52,12 +53,12 @@ def _render_portfolio_list(services, user_id):
     # Categorização baseada no EvaluationStatus
     items_analisar = [i for i in all_items if i.status_carteira == 'ANALISAR']
     items_participar = [i for i in all_items if i.status_carteira == 'PARTICIPAR']
-    items_descartados = [i for i in all_items if i.status_carteira == 'NO_BID']
+    items_finalizados = [i for i in all_items if i.status_carteira in ('NO_BID', 'OUTBID')]
 
     tabs = st.tabs([
         f"📥 A Analisar ({len(items_analisar)})",
         f"🚀 Participar ({len(items_participar)})",
-        f"🗑️ Descartados ({len(items_descartados)})"
+        f"🏁 Finalizados ({len(items_finalizados)})"
     ])
 
     with tabs[0]:
@@ -84,20 +85,20 @@ def _render_portfolio_list(services, user_id):
             st.caption(f"Exibindo {len(filtered_items)} de {len(items_participar)} leilões.")
 
             for auction in filtered_items:
-                _render_card(auction, suffix="participar", is_participating=True)
+                _render_card(auction, suffix="participar", is_participating=True, services=services, user_id=user_id)
 
     with tabs[2]:
-        if not items_descartados:
-            st.info("Nenhum leilão descartado.")
+        if not items_finalizados:
+            st.info("Nenhum leilão finalizado (descartado ou com disputa perdida).")
         else:
             with st.container(border=True):
                 filters = _render_filters("descartados", max_slider_value, allow_sorting=False)
 
-            filtered_items = _apply_filters(items_descartados, filters, max_slider_value)
-            st.caption(f"Exibindo {len(filtered_items)} de {len(items_descartados)} leilões.")
+            filtered_items = _apply_filters(items_finalizados, filters, max_slider_value)
+            st.caption(f"Exibindo {len(filtered_items)} de {len(items_finalizados)} leilões.")
 
             for auction in filtered_items:
-                _render_card(auction, suffix="descartado", is_readonly=True)
+                _render_card(auction, suffix="finalizado", is_readonly=True)
 
 
 def _render_filters(prefix: str, max_value: int, allow_sorting: bool = True):
@@ -149,7 +150,7 @@ def _apply_filters(items, filters, max_slider_value):
     return filtered
 
 
-def _render_card(auction, suffix, is_participating=False, is_readonly=False):
+def _render_card(auction, suffix, is_participating=False, is_readonly=False, services=None, user_id=None):
     """Card de visualização do leilão com botões de ação únicos."""
     with st.container(border=True):
         c1, c2, c3 = st.columns([1, 3, 1])
@@ -172,10 +173,13 @@ def _render_card(auction, suffix, is_participating=False, is_readonly=False):
                 st.rerun()
 
             st.caption(f"📍 {auction.cidade}/{auction.uf} | 🏛️ {auction.site}")
-            
-            # Exibe o motivo do descarte, se houver
-            if is_readonly and auction.no_bid_reason:
-                st.info(f"**Motivo:** {auction.no_bid_reason}", icon="ℹ️")
+
+            # Exibe o motivo do descarte ou status final
+            if is_readonly:
+                if auction.status_carteira == 'NO_BID' and auction.no_bid_reason:
+                    st.info(f"**Motivo do Descarte:** {auction.no_bid_reason}", icon="🗑️")
+                elif auction.status_carteira == 'OUTBID':
+                    st.warning("**Status:** Disputa Perdida", icon="🥊")
 
             c_d1, c_d2 = st.columns(2)
             
@@ -195,6 +199,13 @@ def _render_card(auction, suffix, is_participating=False, is_readonly=False):
                 st.session_state.page = "auditoria_v2"
                 st.session_state.selected_auction = {"site": auction.site, "id_leilao": auction.id_leilao}
                 st.rerun()
+
+            # Botão para marcar como disputa perdida
+            if is_participating:
+                if st.button("Marcar como Perdido 🥊", key=f"btn_lost_{auction.id_leilao}_{suffix}", use_container_width=True):
+                    services["repository"].update_status(user_id, auction.site, auction.id_leilao, EvaluationStatus.OUTBID)
+                    st.toast("Leilão movido para 'Finalizados' como Disputa Perdida.")
+                    st.rerun()
 
 def _render_edit_source_data(services):
     """Formulário para correção de dados de scraping."""

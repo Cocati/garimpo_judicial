@@ -20,6 +20,7 @@ class EvaluationStatus(str, Enum):
     PARTICIPAR = "PARTICIPAR" # Aprovado no detalhe (Aba 2)
     DESCARTAR = "DESCARTAR"   # Rejeitado na triagem
     NO_BID = "NO_BID"         # Rejeitado na análise detalhada (Aba 3)
+    OUTBID = "OUTBID"         # Disputa participada, mas lance foi superado
 
 class NoBidReason(str, Enum):
     """Motivos para descarte na análise detalhada (NO_BID)."""

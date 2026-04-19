@@ -134,7 +134,8 @@ class PostgresAuctionRepository(AuctionRepository):
             func.upper(LeilaoAvaliacaoModel.avaliacao).in_([
                 "ANALISAR", 
                 "PARTICIPAR", 
-                "NO_BID"
+                "NO_BID",
+                "OUTBID"
             ])
         ).all()
         
