@@ -33,7 +33,7 @@ class PostgresAuctionRepository(AuctionRepository):
         
         query = query.order_by(LeilaoAnaliticoModel.id_registro_bruto.desc())
         
-        results = query.limit(100).all()
+        results = query.all()
         return self._map_to_domain(results)
 
     def save_evaluations(self, evaluations: List[Evaluation]) -> int:
@@ -66,11 +66,30 @@ class PostgresAuctionRepository(AuctionRepository):
             raise e
 
     def get_filter_options(self) -> Dict[str, List[str]]:
+        """
+        Retorna opções de filtro apenas para leilões pendentes de triagem.
+        Filtra leilões que NÃO possuem avaliação na tabela leiloes_avaliacoes.
+        """
+        # Subquery para identificar leilões já avaliados
+        subquery = self.session.query(
+            LeilaoAvaliacaoModel.site,
+            LeilaoAvaliacaoModel.id_leilao
+        ).subquery()
+        
+        # Query base com outerjoin para filtrar apenas pendentes
+        base_query = self.session.query(LeilaoAnaliticoModel).outerjoin(
+            subquery,
+            and_(
+                LeilaoAnaliticoModel.site == subquery.c.site,
+                LeilaoAnaliticoModel.id_leilao == subquery.c.id_leilao
+            )
+        ).filter(subquery.c.id_leilao == None)
+        
         return {
-            "ufs": [r[0] for r in self.session.query(distinct(LeilaoAnaliticoModel.uf)).order_by(LeilaoAnaliticoModel.uf).all() if r[0]],
-            "cidades": [r[0] for r in self.session.query(distinct(LeilaoAnaliticoModel.cidade)).order_by(LeilaoAnaliticoModel.cidade).all() if r[0]],
-            "tipos": [r[0] for r in self.session.query(distinct(LeilaoAnaliticoModel.tipo_bem)).order_by(LeilaoAnaliticoModel.tipo_bem).all() if r[0]],
-            "sites": [r[0] for r in self.session.query(distinct(LeilaoAnaliticoModel.site)).order_by(LeilaoAnaliticoModel.site).all() if r[0]],
+            "ufs": [r[0] for r in base_query.with_entities(distinct(LeilaoAnaliticoModel.uf)).order_by(LeilaoAnaliticoModel.uf).all() if r[0]],
+            "cidades": [r[0] for r in base_query.with_entities(distinct(LeilaoAnaliticoModel.cidade)).order_by(LeilaoAnaliticoModel.cidade).all() if r[0]],
+            "tipos": [r[0] for r in base_query.with_entities(distinct(LeilaoAnaliticoModel.tipo_bem)).order_by(LeilaoAnaliticoModel.tipo_bem).all() if r[0]],
+            "sites": [r[0] for r in base_query.with_entities(distinct(LeilaoAnaliticoModel.site)).order_by(LeilaoAnaliticoModel.site).all() if r[0]],
         }
 
     def get_stats(self, user_id: str) -> Dict[str, int]:
@@ -302,6 +321,7 @@ class PostgresAuctionRepository(AuctionRepository):
         if "valor_2_praca" in data: auction.valor_2_praca = data["valor_2_praca"]
         if "data_1_praca" in data: auction.data_1_praca = data["data_1_praca"]
         if "data_2_praca" in data: auction.data_2_praca = data["data_2_praca"]
+        if "link_detalhe" in data: auction.link_detalhe = data["link_detalhe"]
         
         try:
             self.session.commit()

@@ -1,6 +1,6 @@
 import streamlit as st
 
-from datetime import date
+from datetime import date, datetime, time
 from src.domain.models import (
     DetailedAnalysis, ConjugeStatus, NaturezaExecucao, 
     EspecieCredito, RiskLevel
@@ -54,7 +54,11 @@ def render_auditoria_v2(services, user_id: str, site: str, id_leilao: str):
                     
             # Coluna de Informações (Dados reestruturados em 3 linhas)
             with col_info:
-                st.subheader(f"📍 {auction_data.titulo or 'Leilão Identificado'}")
+                # Título com botão de edição
+                col_title, col_edit = st.columns([0.9, 0.1])
+                col_title.subheader(f"📍 {auction_data.titulo or 'Leilão Identificado'}")
+                if col_edit.button("✏️", key="edit_header_btn"):
+                    st.session_state.show_edit_modal = True
                 
                 # Linha 1: Datas das Praças
                 c_data1, c_data2 = st.columns(2)
@@ -70,6 +74,10 @@ def render_auditoria_v2(services, user_id: str, site: str, id_leilao: str):
                 
                 # Linha 3: Link do Edital
                 st.markdown(f"🔗 [Acesse o Edital]({auction_data.link_detalhe})")
+    
+    # Modal de Edição de Dados do Leilão
+    if st.session_state.get("show_edit_modal"):
+        _render_edit_auction_modal(services, auction_data)
     # 3. Layout Principal
     col_form, col_stats = st.columns([3, 1])
 
@@ -435,3 +443,76 @@ def render_auditoria_v2(services, user_id: str, site: str, id_leilao: str):
         services['save_rascunho'].execute(analysis)
     except Exception:
         pass # Falhas silenciosas no autosave não devem travar a UI
+
+
+@st.dialog("✏️ Editar Dados do Leilão")
+def _render_edit_auction_modal(services, auction_data):
+    """Modal para edição rápida dos dados básicos do leilão durante a auditoria."""
+    
+    st.info("Edite os dados principais caso o scraping tenha trazido informações incorretas.")
+    
+    with st.form("edit_auction_modal_form"):
+        new_title = st.text_input("Título", value=auction_data.titulo or "")
+        
+        # Campo de Link do Edital
+        new_link = st.text_input("🔗 Link do Edital", value=auction_data.link_detalhe or "", 
+                                  help="Cole aqui o link direto para o edital do leilão")
+        
+        c1, c2 = st.columns(2)
+        
+        # COLUNA 1: DADOS DA 1ª PRAÇA
+        with c1:
+            st.markdown("### 1ª Praça")
+            v1 = st.number_input("Valor R$", value=float(auction_data.valor_1_praca or 0.0), key="modal_v1")
+            
+            # Tratamento de Data
+            val_d1 = auction_data.data_1_praca.date() if auction_data.data_1_praca else datetime.now().date()
+            d1_input = st.date_input("Data", value=val_d1, key="modal_d1")
+
+        # COLUNA 2: DADOS DA 2ª PRAÇA
+        with c2:
+            st.markdown("### 2ª Praça")
+            v2 = st.number_input("Valor R$", value=float(auction_data.valor_2_praca or 0.0), key="modal_v2")
+            
+            # Tratamento de Data
+            val_d2 = auction_data.data_2_praca.date() if auction_data.data_2_praca else datetime.now().date()
+            d2_input = st.date_input("Data", value=val_d2, key="modal_d2")
+        
+        st.markdown("---")
+        
+        col_save, col_cancel = st.columns(2)
+        
+        with col_save:
+            submitted = st.form_submit_button("💾 Salvar Correções", use_container_width=True)
+        
+        with col_cancel:
+            cancelled = st.form_submit_button("❌ Cancelar", use_container_width=True)
+        
+        if submitted:
+            # Conversão de date -> datetime para compatibilidade com o modelo
+            new_dt1 = datetime.combine(d1_input, time.min)
+            new_dt2 = datetime.combine(d2_input, time.min)
+            
+            updates = {
+                "titulo": new_title, 
+                "link_detalhe": new_link,
+                "valor_1_praca": v1, 
+                "valor_2_praca": v2,
+                "data_1_praca": new_dt1,
+                "data_2_praca": new_dt2
+            }
+            
+            # Chama o repositório para atualizar
+            services["repository"].update_auction_core_data(
+                auction_data.site, 
+                auction_data.id_leilao, 
+                updates
+            )
+            
+            st.success("✅ Dados corrigidos com sucesso!")
+            st.session_state.show_edit_modal = False
+            st.rerun()
+        
+        if cancelled:
+            st.session_state.show_edit_modal = False
+            st.rerun()
