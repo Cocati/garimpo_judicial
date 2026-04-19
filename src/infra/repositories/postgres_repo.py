@@ -5,8 +5,8 @@ from datetime import datetime
 from sqlalchemy.dialects.postgresql import insert
 from src.application.interfaces import AuctionRepository
 from src.domain.models import (
-    Auction, AuctionFilter, Evaluation, DetailedAnalysis, 
-    RiskLevel, OccupationStatus, ConjugeStatus, NaturezaExecucao, EspecieCredito,EvaluationStatus
+    Auction, AuctionFilter, Evaluation, DetailedAnalysis,
+    RiskLevel, OccupationStatus, ConjugeStatus, NaturezaExecucao, EspecieCredito, EvaluationStatus, NoBidReason
 )
 from src.infra.database.models_sql import (
     LeilaoAnaliticoModel, LeilaoAvaliacaoModel, LeilaoAnaliseDetalhadaModel
@@ -114,12 +114,21 @@ class PostgresAuctionRepository(AuctionRepository):
     def get_portfolio_auctions(self, user_id: str) -> List[Auction]:
         results = self.session.query(
             LeilaoAnaliticoModel,
-            LeilaoAvaliacaoModel.avaliacao
+            LeilaoAvaliacaoModel.avaliacao,
+            LeilaoAnaliseDetalhadaModel.no_bid_reason
         ).join(
             LeilaoAvaliacaoModel,
             and_(
                 LeilaoAnaliticoModel.site == LeilaoAvaliacaoModel.site,
                 LeilaoAnaliticoModel.id_leilao == LeilaoAvaliacaoModel.id_leilao
+            )
+        ).outerjoin(
+            LeilaoAnaliseDetalhadaModel,
+            and_(
+                LeilaoAnaliticoModel.site == LeilaoAnaliseDetalhadaModel.site,
+                LeilaoAnaliticoModel.id_leilao == LeilaoAnaliseDetalhadaModel.id_leilao,
+                # Garante que estamos pegando a análise do usuário correto
+                LeilaoAvaliacaoModel.usuario_id == LeilaoAnaliseDetalhadaModel.usuario_id
             )
         ).filter(
             func.upper(LeilaoAvaliacaoModel.avaliacao).in_([
@@ -130,7 +139,7 @@ class PostgresAuctionRepository(AuctionRepository):
         ).all()
         
         portfolio_items = []
-        for model, status_text in results:
+        for model, status_text, no_bid_reason in results:
             auction = Auction(
                 site=model.site,
                 id_leilao=model.id_leilao,
@@ -145,7 +154,8 @@ class PostgresAuctionRepository(AuctionRepository):
                 imagem_capa=model.imagem_capa,
                 data_1_praca=model.data_1_praca,
                 data_2_praca=model.data_2_praca,
-                status_carteira=status_text.upper() if status_text else "ANALISAR"
+                status_carteira=status_text.upper() if status_text else "ANALISAR",
+                no_bid_reason=no_bid_reason
             )
             portfolio_items.append(auction)
             
@@ -221,7 +231,9 @@ class PostgresAuctionRepository(AuctionRepository):
             "divida_condominio": analysis.divida_condominio,
             "divida_iptu": analysis.divida_iptu,
             "divida_subroga": analysis.divida_subroga,
-            "data_atualizacao": datetime.now()
+            "data_atualizacao": datetime.now(),
+            "no_bid_reason": analysis.no_bid_reason.value if analysis.no_bid_reason else None,
+            "no_bid_observation": analysis.no_bid_observation
         }
 
         stmt = insert(LeilaoAnaliseDetalhadaModel).values(**data)
@@ -422,6 +434,9 @@ class PostgresAuctionRepository(AuctionRepository):
                 divida_condominio=float(row.divida_condominio or 0.0),
                 divida_iptu=float(row.divida_iptu or 0.0),
                 divida_subroga=row.divida_subroga if row.divida_subroga is not None else True,
+
+                no_bid_reason=safe_enum(NoBidReason, row.no_bid_reason),
+                no_bid_observation=row.no_bid_observation
             )
         except Exception as e:
             # CRÍTICO: Se der erro (ex: coluna não existe), faz rollback para não travar a próxima requisição

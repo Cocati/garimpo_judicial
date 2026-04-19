@@ -2,8 +2,8 @@ import streamlit as st
 
 from datetime import date, datetime, time
 from src.domain.models import (
-    DetailedAnalysis, ConjugeStatus, NaturezaExecucao, 
-    EspecieCredito, RiskLevel
+    DetailedAnalysis, ConjugeStatus, NaturezaExecucao,
+    EspecieCredito, RiskLevel, NoBidReason
 )
 from src.domain.isj_calculator import IsjCalculator
 from src.presentation.streamlit_app.components.alertas_engine import AlertasEngine
@@ -25,6 +25,8 @@ def render_auditoria_v2(services, user_id: str, site: str, id_leilao: str):
         if not analysis:
             analysis = DetailedAnalysis(site=site, id_leilao=id_leilao, usuario_id=user_id)
         st.session_state.current_analysis = analysis
+    if "show_nobid_dialog" not in st.session_state:
+        st.session_state.show_nobid_dialog = False
 
     # Referência local para facilitar leitura
     analysis = st.session_state.current_analysis
@@ -417,28 +419,14 @@ def render_auditoria_v2(services, user_id: str, site: str, id_leilao: str):
         with col_btn3:
             # O botão de descartar NÃO usa 'disabled=bloqueado', pois nulidades são justamente o motivo de descarte.
             if st.button("🗑️ OUT", use_container_width=True, key="k_btn_desc"):
-                # Invoca o Caso de Uso que criamos nas etapas anteriores
-                services['descartar_auditoria'].execute(analysis, user_id)
-                st.warning("Auditoria descartada e leilão rejeitado.", icon="🗑️")
-                
-                # Limpa o estado atual e força o recarregamento da tela para evitar dados fantasmas
-                if "current_analysis" in st.session_state:
-                    del st.session_state.current_analysis
-                
-                # 2. Limpa os dados da sessão para não causar vazamento de estado (State Leak)
-                if "current_analysis" in st.session_state:
-                    del st.session_state.current_analysis
-                
-                # 3. Pausa rápida para a mensagem de feedback ser lida pelo usuário
-                import time
-                time.sleep(1.5)
-                
-                # 4. Roteamento: Define a página de destino e força o reload
-                st.session_state.page = "listagem"
+                st.session_state.show_nobid_dialog = True
                 st.rerun()
                 
     # 6. Auto-save Silencioso (Background)
     # Executa a cada interação para garantir que nada se perca
+    if st.session_state.get("show_nobid_dialog"):
+        _render_nobid_dialog(services, analysis, user_id)
+
     try:
         services['save_rascunho'].execute(analysis)
     except Exception:
@@ -516,3 +504,51 @@ def _render_edit_auction_modal(services, auction_data):
         if cancelled:
             st.session_state.show_edit_modal = False
             st.rerun()
+
+@st.dialog("🗑️ Descartar Auditoria")
+def _render_nobid_dialog(services, analysis: DetailedAnalysis, user_id: str):
+    """Exibe um modal para selecionar o motivo do descarte (NO_BID)."""
+    st.warning("Você está prestes a mover este leilão para a lista de descartados.")
+
+    options = list(NoBidReason)
+
+    with st.form("nobid_reason_form"):
+        reason = st.selectbox(
+            "Selecione o motivo principal do descarte",
+            options=options,
+            format_func=lambda x: x.value,
+            index=None,
+            placeholder="Escolha uma categoria..."
+        )
+
+        observation = st.text_area(
+            "Observação (opcional)",
+            help="Detalhe o motivo, especialmente se for 'Outro'."
+        )
+
+        submitted = st.form_submit_button("Confirmar Descarte", use_container_width=True, type="primary")
+
+        if submitted:
+            if not reason:
+                st.error("Por favor, selecione um motivo para o descarte.")
+                return
+
+            analysis.no_bid_reason = reason
+            analysis.no_bid_observation = observation
+
+            services['descartar_auditoria'].execute(analysis, user_id)
+            st.warning("Auditoria descartada e leilão rejeitado.", icon="🗑️")
+
+            if "current_analysis" in st.session_state:
+                del st.session_state.current_analysis
+            st.session_state.show_nobid_dialog = False
+
+            import time
+            time.sleep(1.5)
+
+            st.session_state.page = "listagem"
+            st.rerun()
+
+    if st.button("Cancelar"):
+        st.session_state.show_nobid_dialog = False
+        st.rerun()

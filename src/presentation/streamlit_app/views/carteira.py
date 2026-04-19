@@ -173,6 +173,10 @@ def _render_card(auction, suffix, is_participating=False, is_readonly=False):
 
             st.caption(f"📍 {auction.cidade}/{auction.uf} | 🏛️ {auction.site}")
             
+            # Exibe o motivo do descarte, se houver
+            if is_readonly and auction.no_bid_reason:
+                st.info(f"**Motivo:** {auction.no_bid_reason}", icon="ℹ️")
+
             c_d1, c_d2 = st.columns(2)
             
             # Formatação segura de datas

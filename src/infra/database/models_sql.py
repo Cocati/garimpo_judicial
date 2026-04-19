@@ -127,3 +127,7 @@ class LeilaoAnaliseDetalhadaModel(Base):
     divida_iptu = Column(Float, default=0.0)
     divida_subroga = Column(Boolean, default=False)
     data_atualizacao = Column(Date, nullable=True)
+
+    # --- Novos Campos: Motivo do Descarte ---
+    no_bid_reason = Column(String, nullable=True)
+    no_bid_observation = Column(Text, nullable=True)
