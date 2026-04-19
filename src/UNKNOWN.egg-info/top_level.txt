@@ -1,7 +1,0 @@
-__init__
-application
-consolida
-domain
-infra
-presentation
-projeto_unificado

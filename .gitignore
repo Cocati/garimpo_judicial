@@ -4,7 +4,8 @@ venv/
 
 # Python
 __pycache__/
-*.pyc
+*.py[cod]
+*.pyo
 
 # Testes
 .pytest_cache/
@@ -13,20 +14,28 @@ __pycache__/
 .vscode/
 .idea/
 
-# Contextos gerados
-project_context/
+# OS
+.DS_Store
 
-# Diretórios locais
+# Env
+.env
+
+# Logs
+*.log
+
+# Build / cache
+dist/
+build/
+
+# Dados locais
+data/
+tmp/
+script/
 sdd/
-garimpo_judicial_baseline/
 
-# Arquivos locais
-consolida.py
-projeto_unificado.py
-generate_modules_context_garimpo_judicial.py
+# SRC
+src/docs/
+src/__pycache__/
+src/UNKNOWN.egg-info
 
-# Documentos locais
-comandos_git.md
-comandos.md
-ajustes manuais auditoria_v2.md
 
