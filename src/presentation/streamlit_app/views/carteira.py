@@ -1,8 +1,10 @@
 import streamlit as st
+import pandas as pd
+import plotly.express as px
 
 from datetime import datetime, time
 from src.presentation.streamlit_app.views.auditoria_v2 import render_auditoria_v2
-from src.domain.models import EvaluationStatus
+from src.domain.models import EvaluationStatus, NoBidReason
 
 def render_carteira(services, user_id):
     """
@@ -91,8 +93,87 @@ def _render_portfolio_list(services, user_id):
         if not items_finalizados:
             st.info("Nenhum leilão finalizado (descartado ou com disputa perdida).")
         else:
+            # --- INÍCIO DA SEÇÃO DE INDICADORES ---
+            df_finalizados = pd.DataFrame([vars(a) for a in items_finalizados])
+
             with st.container(border=True):
-                filters = _render_filters("descartados", max_slider_value, allow_sorting=False)
+                st.markdown("#### 📊 Painel de Análise de Desempenho")
+                
+                # 1. KPIs
+                total_finalizados = len(df_finalizados)
+                no_bid_count = df_finalizados[df_finalizados['status_carteira'] == 'NO_BID'].shape[0]
+                outbid_count = df_finalizados[df_finalizados['status_carteira'] == 'OUTBID'].shape[0]
+                
+                taxa_no_bid = (no_bid_count / total_finalizados * 100) if total_finalizados > 0 else 0
+                taxa_outbid = (outbid_count / total_finalizados * 100) if total_finalizados > 0 else 0
+                
+                capital_evitado_series = df_finalizados.loc[df_finalizados['status_carteira'] == 'NO_BID', 'valor_2_praca']
+                capital_evitado = pd.to_numeric(capital_evitado_series, errors='coerce').sum()
+
+                kpi_cols = st.columns(4)
+                kpi_cols[0].metric("Total Finalizados", f"{total_finalizados}")
+                kpi_cols[1].metric("Taxa de 'NO BID'", f"{taxa_no_bid:.1f}%")
+                kpi_cols[2].metric("Taxa de 'OUTBID'", f"{taxa_outbid:.1f}%")
+                kpi_cols[3].metric("Capital Evitado", f"R$ {capital_evitado/1_000_000:.2f}M")
+
+                st.divider()
+
+                # 2. Gráficos
+                chart_cols = st.columns(2)
+                with chart_cols[0]:
+                    st.markdown("##### Motivos de Descarte ('NO BID')")
+                    
+                    def get_reason_display_name(reason):
+                        if hasattr(reason, 'value'): return reason.value
+                        elif isinstance(reason, str) and reason: return reason
+                        return "Não especificado"
+
+                    df_nobid = df_finalizados[df_finalizados['status_carteira'] == 'NO_BID'].copy()
+                    if not df_nobid.empty:
+                        df_nobid['no_bid_reason_str'] = df_nobid['no_bid_reason'].apply(get_reason_display_name)
+                        reason_counts = df_nobid['no_bid_reason_str'].value_counts().reset_index()
+                        reason_counts.columns = ['Motivo', 'Quantidade']
+
+                        # Filtra a categoria "Não especificado" para um gráfico mais limpo
+                        reason_counts = reason_counts[reason_counts['Motivo'] != 'Não especificado']
+
+                        if not reason_counts.empty:
+                            fig_reasons = px.pie(
+                                reason_counts,
+                                names='Motivo',
+                                values='Quantidade',
+                                hole=0.4,
+                                color_discrete_sequence=px.colors.qualitative.Pastel
+                            )
+                            fig_reasons.update_layout(height=350, margin=dict(l=20, r=20, t=5, b=20), showlegend=True)
+                            st.plotly_chart(fig_reasons, use_container_width=True)
+                        else:
+                            st.caption("Nenhum motivo de descarte foi especificado.")
+                    else:
+                        st.caption("Nenhum leilão 'NO BID' registrado.")
+
+                with chart_cols[1]:
+                    st.markdown("##### Status dos Finalizados")
+                    if not df_finalizados.empty:
+                        status_counts = df_finalizados['status_carteira'].value_counts().reset_index()
+                        status_counts.columns = ['Status', 'Quantidade']
+                        fig_status = px.pie(status_counts, names='Status', values='Quantidade', hole=0.4, color_discrete_map={'NO_BID': '#EF553B', 'OUTBID': '#636EFA'})
+                        fig_status.update_layout(height=350, margin=dict(l=20, r=20, t=5, b=20))
+                        st.plotly_chart(fig_status, use_container_width=True)
+            
+            st.divider()
+            # --- FIM DA SEÇÃO DE INDICADORES ---
+
+            with st.container(border=True):
+                reason_options = [reason.value for reason in NoBidReason]
+                status_options = ['NO_BID', 'OUTBID']
+                filters = _render_filters(
+                    "descartados", 
+                    max_slider_value, 
+                    allow_sorting=False, 
+                    no_bid_reason_options=reason_options,
+                    status_options=status_options
+                )
 
             filtered_items = _apply_filters(items_finalizados, filters, max_slider_value)
             st.caption(f"Exibindo {len(filtered_items)} de {len(items_finalizados)} leilões.")
@@ -101,14 +182,33 @@ def _render_portfolio_list(services, user_id):
                 _render_card(auction, suffix="finalizado", is_readonly=True)
 
 
-def _render_filters(prefix: str, max_value: int, allow_sorting: bool = True):
+def _render_filters(prefix: str, max_value: int, allow_sorting: bool = True, no_bid_reason_options: list = None, status_options: list = None):
     """Renderiza um conjunto de filtros padronizados."""
     filters = {}
     st.markdown("##### Filtros e Ordenação")
     c1, c2 = st.columns([2, 1])
     with c1:
         filters['search'] = st.text_input("🔎 Buscar por Título ou ID", key=f"search_{prefix}")
+        
+        if no_bid_reason_options:
+            filters['no_bid_reasons'] = st.multiselect(
+                "Filtrar por Motivo de Descarte",
+                options=no_bid_reason_options,
+                key=f"reason_filter_{prefix}"
+            )
 
+        if status_options:
+            filters['statuses'] = st.multiselect(
+                "Filtrar por Status Final",
+                options=status_options,
+                key=f"status_filter_{prefix}"
+            )
+
+    with c2:
+        if allow_sorting:
+            filters['sort_date'] = st.checkbox("Ordenar por data do leilão", value=True, key=f"sort_{prefix}")
+    
+    # Slider fora das colunas para ocupar a largura total
         min_val, max_val = st.slider(
             "💰 Filtrar por Valor (2ª Praça)",
             min_value=0,
@@ -120,10 +220,6 @@ def _render_filters(prefix: str, max_value: int, allow_sorting: bool = True):
         )
         filters['min_val'] = min_val
         filters['max_val'] = max_val
-
-    with c2:
-        if allow_sorting:
-            filters['sort_date'] = st.checkbox("Ordenar por data do leilão", value=True, key=f"sort_{prefix}")
 
     return filters
 
@@ -137,6 +233,22 @@ def _apply_filters(items, filters, max_slider_value):
         filtered = [i for i in filtered if
                     (i.titulo and search_term in i.titulo.lower()) or
                     (i.id_leilao and search_term in i.id_leilao.lower())]
+
+    selected_reasons = filters.get('no_bid_reasons')
+    if selected_reasons:
+        def get_reason_value(reason):
+            if isinstance(reason, NoBidReason):
+                return reason.value
+            return reason
+
+        filtered = [
+            i for i in filtered if
+            i.no_bid_reason and get_reason_value(i.no_bid_reason) in selected_reasons
+        ]
+
+    selected_statuses = filters.get('statuses')
+    if selected_statuses:
+        filtered = [i for i in filtered if i.status_carteira in selected_statuses]
 
     min_val = filters.get('min_val', 0)
     max_val = filters.get('max_val', float('inf'))
