@@ -72,12 +72,13 @@ class IsjCalculator:
         # Validação de defasagem da avaliação
         if analysis.edt_data_avaliacao:
             try:
-                # Se a avaliação tem mais de 1 ano, risco de preço vil por defasagem
                 hoje = date.today()
                 diff = (hoje - analysis.edt_data_avaliacao).days
+                # Se a avaliação tem mais de 1 ano, risco de preço vil por defasagem
                 if diff > 365:
                     score -= 10.0
-            except: pass 
+            except TypeError:
+                pass # Ignora se o tipo de dado para a data for inválido
 
         # 5. NORMALIZAÇÃO FINAL
         # O score nunca deve ser menor que 0 ou maior que 100

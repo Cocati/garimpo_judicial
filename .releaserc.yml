@@ -17,6 +17,6 @@ plugins:
   - "@semantic-release/github"
   # 5. Commita os arquivos alterados (CHANGELOG.md) de volta para o repositório
   - - "@semantic-release/git"
-      - assets:
-          - "CHANGELOG.md"
-        message: "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
+    - assets:
+        - "CHANGELOG.md"
+      message: "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
