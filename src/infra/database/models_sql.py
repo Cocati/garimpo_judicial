@@ -28,6 +28,7 @@ class LeilaoAnaliticoModel(Base):
     # data_scrapping = Column(DateTime) # REMOVIDO: Causava o erro pois não existe no banco
     data_1_praca = Column(DateTime, nullable=True) 
     data_2_praca = Column(DateTime, nullable=True)
+    status_imovel = Column(String, nullable=True)
 
 class LeilaoAvaliacaoModel(Base):
     """

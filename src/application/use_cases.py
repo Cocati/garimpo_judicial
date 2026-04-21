@@ -9,8 +9,8 @@ class GetPendingAuctionsUseCase:
         self.repository = repository
 
     def execute(self, user_id: str, uf: List[str] = None, cidade: List[str] = None, 
-                tipo_bem: List[str] = None, site: List[str] = None) -> List[Auction]:
-        filters = AuctionFilter(uf=uf, cidade=cidade, tipo_bem=tipo_bem, site=site)
+                tipo_bem: List[str] = None, site: List[str] = None, status_imovel: List[str] = None) -> List[Auction]:
+        filters = AuctionFilter(uf=uf, cidade=cidade, tipo_bem=tipo_bem, site=site, status_imovel=status_imovel)
         return self.repository.get_pending_auctions(user_id, filters)
 
 class GetPortfolioAuctionsUseCase:

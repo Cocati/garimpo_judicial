@@ -95,7 +95,8 @@ def run_triage_page(services, user_id):
         unique_ufs=filter_options.get("ufs", []),
         unique_cities=filter_options.get("cidades", []),
         unique_types=filter_options.get("tipos", []),
-        unique_sites=filter_options.get("sites", [])
+        unique_sites=filter_options.get("sites", []),
+        unique_status=filter_options.get("status_imovel", [])
     )
     
     # 3. Busca Leilões com os filtros aplicados
@@ -105,7 +106,8 @@ def run_triage_page(services, user_id):
         uf=filters.get('uf'),
         cidade=filters.get('cidade'),
         tipo_bem=filters.get('tipo_bem'),
-        site=filters.get('site')
+        site=filters.get('site'),
+        status_imovel=filters.get('status_imovel')
     )
     
     # Converte para DataFrame para visualização
