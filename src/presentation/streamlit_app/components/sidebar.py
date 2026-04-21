@@ -1,6 +1,6 @@
 import streamlit as st
 
-def render_sidebar(unique_ufs, unique_cities, unique_types, unique_sites):
+def render_sidebar(unique_ufs, unique_cities, unique_types, unique_sites, unique_status):
     st.sidebar.header("🔍 Filtros de Busca")
     
     # Filtro UF
@@ -32,9 +32,17 @@ def render_sidebar(unique_ufs, unique_cities, unique_types, unique_sites):
         default=[]
     )
     
+    # Filtro Status do Imóvel
+    selected_status = st.sidebar.multiselect(
+        "Status do Imóvel",
+        options=sorted(unique_status) if unique_status else [],
+        default=[]
+    )
+    
     return {
         "uf": selected_uf,
         "cidade": selected_city,
         "tipo_bem": selected_type,
-        "site": selected_site
+        "site": selected_site,
+        "status_imovel": selected_status
     }

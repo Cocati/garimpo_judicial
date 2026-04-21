@@ -30,6 +30,7 @@ class PostgresAuctionRepository(AuctionRepository):
         if filters.cidade: query = query.filter(LeilaoAnaliticoModel.cidade.in_(filters.cidade))
         if filters.tipo_bem: query = query.filter(LeilaoAnaliticoModel.tipo_bem.in_(filters.tipo_bem))
         if filters.site: query = query.filter(LeilaoAnaliticoModel.site.in_(filters.site))
+        if filters.status_imovel: query = query.filter(LeilaoAnaliticoModel.status_imovel.in_(filters.status_imovel))
         
         query = query.order_by(LeilaoAnaliticoModel.id_registro_bruto.desc())
         
@@ -90,6 +91,7 @@ class PostgresAuctionRepository(AuctionRepository):
             "cidades": [r[0] for r in base_query.with_entities(distinct(LeilaoAnaliticoModel.cidade)).order_by(LeilaoAnaliticoModel.cidade).all() if r[0]],
             "tipos": [r[0] for r in base_query.with_entities(distinct(LeilaoAnaliticoModel.tipo_bem)).order_by(LeilaoAnaliticoModel.tipo_bem).all() if r[0]],
             "sites": [r[0] for r in base_query.with_entities(distinct(LeilaoAnaliticoModel.site)).order_by(LeilaoAnaliticoModel.site).all() if r[0]],
+            "status_imovel": [r[0] for r in base_query.with_entities(distinct(LeilaoAnaliticoModel.status_imovel)).order_by(LeilaoAnaliticoModel.status_imovel).all() if r[0]],
         }
 
     def get_stats(self, user_id: str) -> Dict[str, int]:
@@ -267,7 +269,8 @@ class PostgresAuctionRepository(AuctionRepository):
                 link_detalhe=r.link_detalhe,
                 imagem_capa=r.imagem_capa,
                 data_1_praca=r.data_1_praca,
-                data_2_praca=r.data_2_praca
+                data_2_praca=r.data_2_praca,
+                status_imovel=r.status_imovel
             )
             for r in results
         ]
@@ -481,5 +484,6 @@ class PostgresAuctionRepository(AuctionRepository):
             link_detalhe=result.link_detalhe,
             imagem_capa=result.imagem_capa,
             data_1_praca=result.data_1_praca,
-            data_2_praca=result.data_2_praca
+            data_2_praca=result.data_2_praca,
+            status_imovel=result.status_imovel
         )

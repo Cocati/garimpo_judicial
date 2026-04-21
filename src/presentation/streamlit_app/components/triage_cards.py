@@ -35,6 +35,16 @@ def render_triage_cards(df: pd.DataFrame):
             padding: 15px;
             background-color: #262730; /* Cor de fundo do card */
         }
+        .status-badge { 
+            display: inline-block;
+            padding: 3px 10px;
+            font-size: 12px;
+            font-weight: bold;
+            color: white;
+            background-color: #555;
+            border-radius: 12px;
+            margin-bottom: 8px;
+        }
         .big-font { font-size: 16px !important; font-weight: 600; line-height: 1.4; margin-bottom: 10px;}
         .price-label { font-size: 12px; color: #aaa; }
         .price-value { font-size: 15px; font-weight: bold; }
@@ -82,6 +92,11 @@ def render_triage_cards(df: pd.DataFrame):
                 titulo = row.get('titulo', 'Sem Título')
                 st.markdown(f"<div class='big-font'>{titulo}</div>", unsafe_allow_html=True)
                 
+                # Exibe o status do imóvel, se existir
+                status_imovel = row.get('status_imovel')
+                if status_imovel and pd.notna(status_imovel):
+                    st.markdown(f"<span class='status-badge'>{status_imovel}</span>", unsafe_allow_html=True)
+
                 # Exibição de Valores Formatados
                 v1 = float(row.get('valor_1_praca', 0) or 0)
                 v2 = float(row.get('valor_2_praca', 0) or 0)

@@ -1,0 +1,22 @@
+# Configuração para o semantic-release
+
+branches:
+  - main
+  - master
+  - name: develop
+    prerelease: true # Cria pré-releases (ex: 1.0.0-alpha.1) a partir da develop
+
+plugins:
+  # 1. Analisa as mensagens de commit para determinar a próxima versão
+  - "@semantic-release/commit-analyzer"
+  # 2. Gera as notas de release a partir dos commits
+  - "@semantic-release/release-notes-generator"
+  # 3. Cria ou atualiza o arquivo CHANGELOG.md com as novas notas
+  - "@semantic-release/changelog"
+  # 4. Cria a Release na interface do GitHub, com as notas e tags
+  - "@semantic-release/github"
+  # 5. Commita os arquivos alterados (CHANGELOG.md) de volta para o repositório
+  - - "@semantic-release/git"
+      - assets:
+          - "CHANGELOG.md"
+        message: "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"

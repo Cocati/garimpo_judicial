@@ -129,6 +129,7 @@ class Auction:
     data_2_praca: Optional[datetime] = None
     status_carteira: Optional[str] = None
     no_bid_reason: Optional[str] = None
+    status_imovel: Optional[str] = None
 
     @property
     def unique_id(self) -> str:
@@ -167,6 +168,7 @@ class AuctionFilter:
     tipo_bem: Optional[List[str]] = None
     site: Optional[List[str]] = None
     tipo_leilao: Optional[List[str]] = None
+    status_imovel: Optional[List[str]] = None
 
 @dataclass
 class Evaluation:
