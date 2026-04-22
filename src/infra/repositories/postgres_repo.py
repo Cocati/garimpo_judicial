@@ -6,10 +6,12 @@ from sqlalchemy.dialects.postgresql import insert
 from src.application.interfaces import AuctionRepository
 from src.domain.models import (
     Auction, AuctionFilter, Evaluation, DetailedAnalysis,
-    RiskLevel, OccupationStatus, ConjugeStatus, NaturezaExecucao, EspecieCredito, EvaluationStatus, NoBidReason
+    RiskLevel, OccupationStatus, ConjugeStatus, NaturezaExecucao, EspecieCredito, EvaluationStatus, NoBidReason,
+    ScraperRun, ScraperRunFilter
 )
 from src.infra.database.models_sql import (
-    LeilaoAnaliticoModel, LeilaoAvaliacaoModel, LeilaoAnaliseDetalhadaModel
+    LeilaoAnaliticoModel, LeilaoAvaliacaoModel, LeilaoAnaliseDetalhadaModel,
+    ScraperRunModel
 )
 
 class PostgresAuctionRepository(AuctionRepository):
@@ -487,3 +489,48 @@ class PostgresAuctionRepository(AuctionRepository):
             data_2_praca=result.data_2_praca,
             status_imovel=result.status_imovel
         )
+
+    # --- MÉTODOS DA TELA DE MONITORAMENTO ---
+
+    def get_scraper_runs(self, filters: ScraperRunFilter) -> List[ScraperRun]:
+        """
+        Recupera os registros de execução dos scrapers com base nos filtros fornecidos.
+        """
+        query = self.session.query(ScraperRunModel)
+
+        if filters.start_date:
+            query = query.filter(ScraperRunModel.execution_start_time >= filters.start_date)
+        if filters.end_date:
+            from datetime import timedelta
+            end_date_inclusive = filters.end_date + timedelta(days=1)
+            query = query.filter(ScraperRunModel.execution_start_time < end_date_inclusive)
+        if filters.sources:
+            query = query.filter(ScraperRunModel.source_name.in_(filters.sources))
+        if filters.statuses:
+            query = query.filter(ScraperRunModel.run_status.in_(filters.statuses))
+
+        results = query.order_by(ScraperRunModel.execution_start_time.desc()).all()
+
+        return [
+            ScraperRun(
+                id=r.id,
+                execution_id=r.execution_id,
+                source_name=r.source_name,
+                run_type=r.run_type,
+                execution_start_time=r.execution_start_time,
+                execution_end_time=r.execution_end_time,
+                duration_seconds=r.duration_seconds,
+                run_status=r.run_status,
+                total_requests=r.total_requests,
+                successful_requests=r.successful_requests,
+                failed_requests=r.failed_requests,
+                raw_items_collected=r.raw_items_collected,
+                mapped_items_count=r.mapped_items_count,
+                error_details=r.error_details
+            ) for r in results
+        ]
+
+    def get_scraper_sources(self) -> List[str]:
+        """Recupera a lista de nomes de fontes (scrapers) únicos da tabela de execuções."""
+        results = self.session.query(distinct(ScraperRunModel.source_name)).order_by(ScraperRunModel.source_name).all()
+        return [r[0] for r in results if r[0]]
