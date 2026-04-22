@@ -1,10 +1,6 @@
 import streamlit as st
 from src.infra.database.config import SessionLocal
 from src.infra.repositories.postgres_repo import PostgresAuctionRepository
-from src.application.use_cases import (
-    # ... outros imports existentes ...
-    DescartarAuditoriaUseCase
-)
 
 # Importa TODOS os Use Cases (Triagem + Carteira + Auditoria)
 from src.application.use_cases import (
@@ -19,7 +15,12 @@ from src.application.use_cases import (
     
     # --- Fase 3: Auditoria V2 ---
     SaveAuditoriaRascunhoUseCase,
-    FinalizarAuditoriaUseCase
+    FinalizarAuditoriaUseCase,
+    DescartarAuditoriaUseCase,
+
+    # --- Monitoramento ---
+    GetScraperRunsUseCase,
+    GetScraperSourcesUseCase
 )
 
 @st.cache_resource
@@ -51,5 +52,9 @@ def get_services():
         # --- FASE 3: AUDITORIA V2 (Usado no auditoria_v2.py) ---
         "save_rascunho": SaveAuditoriaRascunhoUseCase(repo),
         "finalizar_auditoria": FinalizarAuditoriaUseCase(repo),
-        'descartar_auditoria': DescartarAuditoriaUseCase(repo)
+        'descartar_auditoria': DescartarAuditoriaUseCase(repo),
+
+        # --- MONITORAMENTO (Usado no monitoramento.py) ---
+        "get_scraper_runs": GetScraperRunsUseCase(repo),
+        "get_scraper_sources": GetScraperSourcesUseCase(repo)
     }

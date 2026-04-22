@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import List, Dict, Optional
-from src.domain.models import Auction, AuctionFilter, Evaluation, DetailedAnalysis,EvaluationStatus
+from src.domain.models import Auction, AuctionFilter, Evaluation, DetailedAnalysis, EvaluationStatus, ScraperRun, ScraperRunFilter
 
 
 class AuctionRepository(ABC):
@@ -50,4 +50,14 @@ class AuctionRepository(ABC):
         """
         Atualiza o status de avaliação de um leilão (ex: de ANALISAR para PARTICIPAR).
         """
+        pass
+
+    @abstractmethod
+    def get_scraper_runs(self, filters: ScraperRunFilter) -> List[ScraperRun]:
+        """Recupera os registros de execução dos scrapers."""
+        pass
+
+    @abstractmethod
+    def get_scraper_sources(self) -> List[str]:
+        """Recupera a lista de nomes de fontes (scrapers) únicos."""
         pass

@@ -30,6 +30,7 @@ try:
     )
     # Importa a Nova Página
     from src.presentation.streamlit_app.views.carteira import render_carteira
+    from src.presentation.streamlit_app.monitoramento import render_monitoramento
     from src.presentation.streamlit_app.styles import load_global_css
 except ImportError as e:
     st.error(f"Erro de Importação: {e}")
@@ -55,7 +56,7 @@ def main():
         # Menu de Opções
         page = st.radio(
             "Navegação", 
-            ["🔍 Triagem Rápida", "📁 Minha Carteira"],
+            ["🔍 Triagem Rápida", "📁 Minha Carteira", "📊 Monitoramento"],
             index=0
         )
         
@@ -79,6 +80,10 @@ def main():
     # --- ROTA: CARTEIRA ---
     elif page == "📁 Minha Carteira":
         render_carteira(services, user_id)
+
+    # --- ROTA: MONITORAMENTO ---
+    elif page == "📊 Monitoramento":
+        render_monitoramento(services)
 
 # =========================================
 # LÓGICA DA PÁGINA DE TRIAGEM (Refatorada)

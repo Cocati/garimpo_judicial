@@ -306,3 +306,31 @@ class DetailedAnalysis:
         if not self.vlr_avaliacao or self.vlr_avaliacao == 0:
             return 0.0
         return (self.proc_debito_atualizado / self.vlr_avaliacao) * 100
+
+# --- ENTIDADES DE MONITORAMENTO DE SCRAPER ---
+
+@dataclass
+class ScraperRun:
+    """Representa uma única execução de um scraper."""
+    id: int
+    execution_id: str
+    source_name: str
+    run_type: str
+    execution_start_time: datetime
+    execution_end_time: Optional[datetime]
+    duration_seconds: Optional[int]
+    run_status: str
+    total_requests: Optional[int]
+    successful_requests: Optional[int]
+    failed_requests: Optional[int]
+    raw_items_collected: Optional[int]
+    mapped_items_count: Optional[int]
+    error_details: Optional[str]
+
+@dataclass
+class ScraperRunFilter:
+    """Filtros para busca de execuções de scraper."""
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    sources: Optional[List[str]] = None
+    statuses: Optional[List[str]] = None
