@@ -1,7 +1,7 @@
 # Arquivo: src/infra/database/models_sql.py
 from sqlalchemy import Column, String, Integer, Float, DateTime, Boolean, Text, Date, Numeric, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.dialects.postgresql import JSONB
 
 
@@ -132,3 +132,29 @@ class LeilaoAnaliseDetalhadaModel(Base):
     # --- Novos Campos: Motivo do Descarte ---
     no_bid_reason = Column(String, nullable=True)
     no_bid_observation = Column(Text, nullable=True)
+
+class ScraperRunModel(Base):
+    """
+    Representação ORM da tabela de log de execuções dos scrapers.
+    """
+    __tablename__ = 'scraper_runs'
+
+    id = Column(Integer, primary_key=True)
+    execution_id = Column(String, unique=True, nullable=False)
+    source_name = Column(String(100), nullable=False)
+    run_type = Column(String(50), nullable=False)
+    execution_start_time = Column(DateTime(timezone=True), nullable=False)
+    execution_end_time = Column(DateTime(timezone=True), nullable=True)
+    duration_seconds = Column(Integer, nullable=True)
+    run_status = Column(String(50), nullable=False)
+    total_requests = Column(Integer, nullable=True)
+    successful_requests = Column(Integer, nullable=True)
+    failed_requests = Column(Integer, nullable=True)
+    avg_latency_ms = Column(Integer, nullable=True)
+    p95_latency_ms = Column(Integer, nullable=True)
+    raw_items_collected = Column(Integer, nullable=True)
+    mapped_items_count = Column(Integer, nullable=True)
+    max_pages_scraped = Column(Integer, nullable=True)
+    parameters_used = Column(JSONB, nullable=True)
+    error_details = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

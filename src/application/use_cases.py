@@ -1,5 +1,5 @@
-from typing import List, Dict
-from src.domain.models import Auction, AuctionFilter, Evaluation, EvaluationStatus, DetailedAnalysis
+from typing import List, Dict, Optional
+from src.domain.models import Auction, AuctionFilter, Evaluation, EvaluationStatus, DetailedAnalysis, ScraperRunFilter
 from src.application.interfaces import AuctionRepository
 from src.domain.isj_calculator import IsjCalculator
 
@@ -154,4 +154,21 @@ class DescartarAuditoriaUseCase:
             id_leilao=analysis.id_leilao,
             new_status=EvaluationStatus.NO_BID
         )
-    
+
+class GetScraperRunsUseCase:
+    """Caso de uso: Recuperar dados de execução dos scrapers para monitoramento."""
+    def __init__(self, repository: AuctionRepository):
+        self.repository = repository
+
+    def execute(self, start_date: Optional[str] = None, end_date: Optional[str] = None,
+                sources: Optional[List[str]] = None, statuses: Optional[List[str]] = None) -> List[Dict]:
+        filters = ScraperRunFilter(start_date=start_date, end_date=end_date, sources=sources, statuses=statuses)
+        return self.repository.get_scraper_runs(filters)
+
+class GetScraperSourcesUseCase:
+    """Caso de uso: Obter a lista de nomes de fontes de scraper."""
+    def __init__(self, repository: AuctionRepository):
+        self.repository = repository
+
+    def execute(self) -> List[str]:
+        return self.repository.get_scraper_sources()
