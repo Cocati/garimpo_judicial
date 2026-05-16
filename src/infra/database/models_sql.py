@@ -133,6 +133,9 @@ class LeilaoAnaliseDetalhadaModel(Base):
     no_bid_reason = Column(String, nullable=True)
     no_bid_observation = Column(Text, nullable=True)
 
+    # --- Novo Campo: Resumo de Alertas para Gráficos ---
+    isj_alert_summary = Column(JSONB, nullable=True)
+
 class ScraperRunModel(Base):
     """
     Representação ORM da tabela de log de execuções dos scrapers.

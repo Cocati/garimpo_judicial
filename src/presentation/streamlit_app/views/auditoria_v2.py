@@ -377,6 +377,23 @@ def render_auditoria_v2(services, user_id: str, site: str, id_leilao: str):
     # 4. Cálculos Finais (Reativos)
     # Recalcula ISJ e KPIs com base nos dados recém inseridos na UI
     alertas = AlertasEngine.avaliar(analysis)
+
+    # --- NOVO: Gera e anexa o resumo de alertas para persistência ---
+    contagem_alertas = {
+        "critico": len([a for a in alertas if a.nivel == "critico"]),
+        "alto": len([a for a in alertas if a.nivel == "alto"]),
+        "medio": len([a for a in alertas if a.nivel == "medio"]),
+        "info": len([a for a in alertas if a.nivel == "info"])
+    }
+    analysis.isj_alert_summary = {
+        "labels": ["Crítico", "Alto", "Médio", "Info"],
+        "values": [
+            contagem_alertas["critico"],
+            contagem_alertas["alto"],
+            contagem_alertas["medio"],
+            contagem_alertas["info"]
+        ]
+    }
     kpis = IsjCalculator.calculate_financial_kpis(analysis)
     isj_score = IsjCalculator.calculate(analysis)
 
