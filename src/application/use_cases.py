@@ -1,5 +1,5 @@
 from typing import List, Dict, Optional
-from src.domain.models import Auction, AuctionFilter, Evaluation, EvaluationStatus, DetailedAnalysis, ScraperRunFilter
+from src.domain.models import Auction, AuctionFilter, Evaluation, EvaluationStatus, DetailedAnalysis, ScraperRunFilter, GlobalSearchFilter
 from src.application.interfaces import AuctionRepository
 from src.domain.isj_calculator import IsjCalculator
 
@@ -61,6 +61,16 @@ class SubmitBatchEvaluationUseCase:
             evaluations_to_save.append(evaluation)
         return self.repository.save_evaluations(evaluations_to_save)
     
+class UpdateStatusUseCase:
+    """Caso de uso: Atualiza o status de um leilão para um usuário."""
+    def __init__(self, repository: AuctionRepository):
+        self.repository = repository
+
+    def execute(self, user_id: str, site: str, id_leilao: str, new_status: EvaluationStatus):
+        """Executa a atualização de status."""
+        # A lógica de negócio (se houver) entraria aqui antes de chamar o repositório.
+        self.repository.update_status(user_id, site, id_leilao, new_status)
+
 class GetFilterOptionsUseCase:
     def __init__(self, repository: AuctionRepository):
         self.repository = repository
@@ -172,3 +182,13 @@ class GetScraperSourcesUseCase:
 
     def execute(self) -> List[str]:
         return self.repository.get_scraper_sources()
+
+class SearchAllAuctionsUseCase:
+    """Caso de uso: Busca global em todos os leilões."""
+    def __init__(self, repository: AuctionRepository):
+        self.repository = repository
+
+    def execute(self, user_id: str, search_term: Optional[str] = None, 
+                uf: Optional[List[str]] = None, status: Optional[List[EvaluationStatus]] = None) -> List[Auction]:
+        filters = GlobalSearchFilter(search_term=search_term, uf=uf, status=status)
+        return self.repository.search_all_auctions(user_id, filters)

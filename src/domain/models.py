@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from datetime import datetime, date
-from typing import Optional, List
+from typing import Optional, List, Dict
 from enum import Enum
 
 # --- ENUMS DE APOIO ---
@@ -171,6 +171,14 @@ class AuctionFilter:
     status_imovel: Optional[List[str]] = None
 
 @dataclass
+class GlobalSearchFilter:
+    """Filtros para a pesquisa global de leilões."""
+    search_term: Optional[str] = None
+    uf: Optional[List[str]] = None
+    status: Optional[List[EvaluationStatus]] = None
+
+
+@dataclass
 class Evaluation:
     """
     Representa a avaliação de um leilão.
@@ -273,6 +281,9 @@ class DetailedAnalysis:
     # --- Novos Campos: Motivo do Descarte (NO_BID) ---
     no_bid_reason: Optional[NoBidReason] = None
     no_bid_observation: Optional[str] = None
+
+    # --- Novo Campo: Resumo de Alertas para Gráficos ---
+    isj_alert_summary: Optional[Dict] = None
 
     # --- Propriedades de Compatibilidade (Getters) ---
     @property

@@ -9,6 +9,7 @@ from src.application.use_cases import (
     SubmitBatchEvaluationUseCase, 
     GetFilterOptionsUseCase,  # <--- O erro estava aqui (faltava injetar este)
     GetUserStatsUseCase,      # <--- Necessário para a sidebar do main.py
+    UpdateStatusUseCase,      # <--- Necessário para reverter descarte
 
     # --- Fase 2: Carteira ---
     GetPortfolioAuctionsUseCase, 
@@ -20,7 +21,10 @@ from src.application.use_cases import (
 
     # --- Monitoramento ---
     GetScraperRunsUseCase,
-    GetScraperSourcesUseCase
+    GetScraperSourcesUseCase,
+
+    # --- Pesquisa Global ---
+    SearchAllAuctionsUseCase
 )
 
 @st.cache_resource
@@ -45,6 +49,7 @@ def get_services():
         "get_stats": GetUserStatsUseCase(repo),             # Resolve a sidebar
         "get_auctions": GetPendingAuctionsUseCase(repo),    # Busca leilões pendentes
         "submit_eval": SubmitBatchEvaluationUseCase(repo),  # Salva decisões da triagem
+        "update_status": UpdateStatusUseCase(repo),         # Atualiza status individual (usado na Pesquisa)
         
         # --- FASE 2: CARTEIRA (Usado no carteira.py) ---
         "get_portfolio_auctions": GetPortfolioAuctionsUseCase(repo),
@@ -56,5 +61,8 @@ def get_services():
 
         # --- MONITORAMENTO (Usado no monitoramento.py) ---
         "get_scraper_runs": GetScraperRunsUseCase(repo),
-        "get_scraper_sources": GetScraperSourcesUseCase(repo)
+        "get_scraper_sources": GetScraperSourcesUseCase(repo),
+
+        # --- PESQUISA GLOBAL (Usado no pesquisa.py) ---
+        "search_auctions": SearchAllAuctionsUseCase(repo)
     }

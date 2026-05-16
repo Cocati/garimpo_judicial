@@ -1,11 +1,11 @@
 from typing import List, Dict, Optional
 from sqlalchemy.orm import Session
-from sqlalchemy import text, and_, func, distinct
+from sqlalchemy import text, and_, func, distinct, or_
 from datetime import datetime
 from sqlalchemy.dialects.postgresql import insert
 from src.application.interfaces import AuctionRepository
 from src.domain.models import (
-    Auction, AuctionFilter, Evaluation, DetailedAnalysis,
+    Auction, AuctionFilter, Evaluation, DetailedAnalysis, GlobalSearchFilter,
     RiskLevel, OccupationStatus, ConjugeStatus, NaturezaExecucao, EspecieCredito, EvaluationStatus, NoBidReason,
     ScraperRun, ScraperRunFilter
 )
@@ -114,6 +114,71 @@ class PostgresAuctionRepository(AuctionRepository):
             return {'analisar': 0, 'descartar': 0, 'total_processado': 0}
 
     # --- MÉTODOS DA FASE 2 (CARTEIRA / ANÁLISE) ---
+
+    def search_all_auctions(self, user_id: str, filters: GlobalSearchFilter) -> List[Auction]:
+        """
+        Busca em TODOS os leilões, juntando o status da avaliação do usuário.
+        """
+        # Query base em leiloes_analiticos com um LEFT JOIN para as avaliações do usuário
+        query = self.session.query(
+            LeilaoAnaliticoModel,
+            LeilaoAvaliacaoModel.avaliacao
+        ).outerjoin(
+            LeilaoAvaliacaoModel,
+            and_(
+                LeilaoAnaliticoModel.site == LeilaoAvaliacaoModel.site,
+                LeilaoAnaliticoModel.id_leilao == LeilaoAvaliacaoModel.id_leilao,
+                LeilaoAvaliacaoModel.usuario_id == user_id
+            )
+        )
+
+        # --- APLICAÇÃO DOS FILTROS DINÂMICOS ---
+
+        # 1. Filtro por termo de busca (título ou id_leilao)
+        if filters.search_term:
+            search_pattern = f"%{filters.search_term}%"
+            query = query.filter(
+                or_(
+                    LeilaoAnaliticoModel.titulo.ilike(search_pattern),
+                    LeilaoAnaliticoModel.id_leilao.ilike(search_pattern)
+                )
+            )
+
+        # 2. Filtro por UF
+        if filters.uf:
+            query = query.filter(LeilaoAnaliticoModel.uf.in_(filters.uf))
+
+        # 3. Filtro por Status (lógica mais complexa)
+        if filters.status:
+            status_conditions = []
+            # Se 'PENDING' for selecionado, busca por leilões sem avaliação (outer join result é NULL)
+            if EvaluationStatus.PENDING in filters.status:
+                status_conditions.append(LeilaoAvaliacaoModel.avaliacao.is_(None))
+            
+            # Para os outros status, busca pelo valor correspondente na tabela de avaliações
+            other_statuses = [s.value for s in filters.status if s != EvaluationStatus.PENDING]
+            if other_statuses:
+                status_conditions.append(LeilaoAvaliacaoModel.avaliacao.in_(other_statuses))
+            
+            if status_conditions:
+                query = query.filter(or_(*status_conditions))
+
+        # Ordena pelos mais recentes e limita para não sobrecarregar
+        query = query.order_by(LeilaoAnaliticoModel.id_registro_bruto.desc()).limit(100)
+        
+        results = query.all()
+
+        # --- MAPEAMENTO PARA O DOMÍNIO ---
+        auctions = []
+        for model, status_avaliacao in results:
+            # Se não há avaliação, o status é 'PENDING'
+            status_final = status_avaliacao.upper() if status_avaliacao else EvaluationStatus.PENDING.value
+            
+            auction = self._map_single_to_domain(model)
+            auction.status_carteira = status_final
+            auctions.append(auction)
+            
+        return auctions
 
     def get_portfolio_auctions(self, user_id: str) -> List[Auction]:
         results = self.session.query(
@@ -240,6 +305,8 @@ class PostgresAuctionRepository(AuctionRepository):
             "no_bid_reason": analysis.no_bid_reason.value if analysis.no_bid_reason else None,
             "no_bid_observation": analysis.no_bid_observation
         }
+        if hasattr(analysis, 'isj_alert_summary'):
+            data["isj_alert_summary"] = analysis.isj_alert_summary
 
         stmt = insert(LeilaoAnaliseDetalhadaModel).values(**data)
         
@@ -256,26 +323,27 @@ class PostgresAuctionRepository(AuctionRepository):
             self.session.rollback()
             raise e
 
+    def _map_single_to_domain(self, r: LeilaoAnaliticoModel) -> Auction:
+        """Mapeia um único resultado do modelo SQLAlchemy para o objeto de domínio Auction."""
+        return Auction(
+            site=r.site,
+            id_leilao=r.id_leilao,
+            titulo=r.titulo,
+            uf=r.uf,
+            cidade=r.cidade,
+            tipo_leilao=r.tipo_leilao,
+            tipo_bem=r.tipo_bem,
+            valor_1_praca=float(r.valor_1_praca) if r.valor_1_praca else 0.0,
+            valor_2_praca=float(r.valor_2_praca) if r.valor_2_praca else 0.0,
+            link_detalhe=r.link_detalhe,
+            imagem_capa=r.imagem_capa,
+            data_1_praca=r.data_1_praca,
+            data_2_praca=r.data_2_praca,
+            status_imovel=r.status_imovel
+        )
+
     def _map_to_domain(self, results) -> List[Auction]:
-        return [
-            Auction(
-                site=r.site,
-                id_leilao=r.id_leilao,
-                titulo=r.titulo,
-                uf=r.uf,
-                cidade=r.cidade,
-                tipo_leilao=r.tipo_leilao,
-                tipo_bem=r.tipo_bem,
-                valor_1_praca=float(r.valor_1_praca) if r.valor_1_praca else 0.0,
-                valor_2_praca=float(r.valor_2_praca) if r.valor_2_praca else 0.0,
-                link_detalhe=r.link_detalhe,
-                imagem_capa=r.imagem_capa,
-                data_1_praca=r.data_1_praca,
-                data_2_praca=r.data_2_praca,
-                status_imovel=r.status_imovel
-            )
-            for r in results
-        ]
+        return [self._map_single_to_domain(r) for r in results]
     
     def update_status(self, user_id: str, site: str, id_leilao: str, new_status: EvaluationStatus) -> None:
         """
@@ -442,7 +510,8 @@ class PostgresAuctionRepository(AuctionRepository):
                 divida_subroga=row.divida_subroga if row.divida_subroga is not None else True,
 
                 no_bid_reason=safe_enum(NoBidReason, row.no_bid_reason),
-                no_bid_observation=row.no_bid_observation
+                no_bid_observation=row.no_bid_observation,
+                isj_alert_summary=row.isj_alert_summary if hasattr(row, 'isj_alert_summary') else None
             )
         except Exception as e:
             # CRÍTICO: Se der erro (ex: coluna não existe), faz rollback para não travar a próxima requisição
