@@ -1,3 +1,10 @@
+# [1.6.0](https://github.com/Cocati/garimpo_judicial/compare/v1.5.0...v1.6.0) (2026-05-16)
+
+
+### Features
+
+* implementação da funcionalidade de pesquisa global ([9d14fcf](https://github.com/Cocati/garimpo_judicial/commit/9d14fcf8901f99334f59bc4da882d75298152745))
+
 # [1.5.0](https://github.com/Cocati/garimpo_judicial/compare/v1.4.0...v1.5.0) (2026-04-22)
 
 
